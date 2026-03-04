@@ -1,0 +1,19 @@
+{
+  "name": "italia90-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node backend/src/index.js",
+    "start": "node backend/src/index.js",
+    "vercel-build": "cd app && npm install && npm run build"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.98.0",
+    "cors": "^2.8.5",
+    "express": "^4.18.3",
+    "mercadopago": "^2.12.0",
+    "morgan": "^1.10.0",
+    "nanoid": "^5.0.5"
+  }
+}

@@ -5,7 +5,7 @@ import supabaseClient from './supabaseClient';
 import { validateLuhn, validateExpiryDate, validateCVV, validateCardName, capitalizeName, formatExpiryDate, formatCardNumber, getCardType } from './utils/validation';
 import AdminRoutes from './Admin';
 
-const API = 'http://localhost:3001/api';
+const API = import.meta.env.VITE_API_URL || '/api';
 
 function PageHeader(){
   const navigate = useNavigate();

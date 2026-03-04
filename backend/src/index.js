@@ -821,5 +821,10 @@ app.get('/api/payments/by-email', (req, res) => {
   res.json(ps);
 });
 
-const port = 3001;
-app.listen(port, () => console.log(`Italia90 backend running on http://localhost:${port}`));
+const port = process.env.PORT || 3001;
+// Solo escuchar si se ejecuta directamente, no en Vercel
+if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
+  app.listen(port, () => console.log(`Italia90 backend running on http://localhost:${port}`));
+}
+
+export default app;
