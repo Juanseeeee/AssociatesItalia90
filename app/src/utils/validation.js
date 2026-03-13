@@ -1,4 +1,9 @@
 
+export const isValidEmail = (email) => {
+  const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return re.test(email);
+};
+
 export const validateLuhn = (number) => {
   const sanitized = number.replace(/\D/g, '');
   if (!sanitized || sanitized.length < 13) return false; // Basic length check
@@ -25,18 +30,12 @@ export const getCardType = (number) => {
 };
 
 export const formatCardNumber = (value) => {
-  const v = value.replace(/\s+/g, '').replace(/[^0-9]/gi, '');
-  const matches = v.match(/\d{4,16}/g);
-  const match = matches && matches[0] || '';
+  const v = value.replace(/\D/g, '');
   const parts = [];
-  for (let i = 0, len = match.length; i < len; i += 4) {
-    parts.push(match.substring(i, i + 4));
+  for (let i = 0, len = v.length; i < len; i += 4) {
+    parts.push(v.substring(i, i + 4));
   }
-  if (parts.length) {
-    return parts.join(' ');
-  } else {
-    return value;
-  }
+  return parts.length ? parts.join(' ') : v;
 };
 
 export const validateExpiryDate = (date) => {

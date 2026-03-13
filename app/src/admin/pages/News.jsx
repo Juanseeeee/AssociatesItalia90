@@ -1,0 +1,330 @@
+import React, { useState, useEffect } from 'react';
+import { 
+  Newspaper, 
+  Calendar, 
+  Image as ImageIcon, 
+  Plus, 
+  Edit, 
+  Trash2, 
+  Search,
+  Eye,
+  PenTool
+} from 'lucide-react';
+import { toast } from 'sonner';
+import Modal from '../components/Modal';
+import { compressImage } from '../../utils/imageUtils';
+
+const API = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+
+const News = () => {
+  const [news, setNews] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState('');
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingNews, setEditingNews] = useState(null);
+  
+  const [formData, setFormData] = useState({
+    title: '',
+    content: '',
+    image: null,
+    previewUrl: null
+  });
+
+  useEffect(() => {
+    fetchNews();
+  }, []);
+
+  const fetchNews = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`${API}/news`);
+      if (!res.ok) throw new Error('Error al cargar noticias');
+      const data = await res.json();
+      setNews(Array.isArray(data) ? data : []);
+    } catch (error) {
+      toast.error('No se pudieron cargar las noticias');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleOpenModal = (item = null) => {
+    if (item) {
+      setEditingNews(item);
+      setFormData({
+        title: item.title,
+        content: item.content,
+        image: null,
+        previewUrl: item.image_url ? (item.image_url.startsWith('http') ? item.image_url : `${API.replace('/api', '')}${item.image_url}`) : null
+      });
+    } else {
+      setEditingNews(null);
+      setFormData({
+        title: '',
+        content: '',
+        image: null,
+        previewUrl: null
+      });
+    }
+    setIsModalOpen(true);
+  };
+
+  const handleImageChange = async (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      try {
+          const { file: compressedFile, preview } = await compressImage(file, 0.8, 1200);
+          setFormData({
+            ...formData,
+            image: compressedFile,
+            previewUrl: preview
+          });
+      } catch (error) {
+          toast.error("Error al procesar la imagen");
+      }
+    }
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm('¿Estás seguro de eliminar esta noticia?')) return;
+    
+    const token = localStorage.getItem('admin_token');
+    try {
+      const res = await fetch(`${API}/news/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (res.ok) {
+        toast.success('Noticia eliminada');
+        fetchNews();
+      } else {
+        throw new Error('Error al eliminar');
+      }
+    } catch (error) {
+      toast.error('Error al eliminar la noticia');
+    }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    if (formData.title.length < 5) {
+        toast.error('El título debe tener al menos 5 caracteres');
+        return;
+    }
+    if (formData.content.length < 20) {
+        toast.error('El contenido es demasiado corto');
+        return;
+    }
+
+    const token = localStorage.getItem('admin_token');
+    
+    const data = new FormData();
+    data.append('title', formData.title);
+    data.append('content', formData.content);
+    if (formData.image) {
+      data.append('image', formData.image);
+    }
+
+    const toastId = toast.loading(editingNews ? 'Actualizando...' : 'Publicando...');
+
+    try {
+      const url = editingNews 
+        ? `${API}/news/${editingNews.id}`
+        : `${API}/news`;
+      
+      const method = editingNews ? 'PUT' : 'POST';
+
+      const res = await fetch(url, {
+        method,
+        headers: { 'Authorization': `Bearer ${token}` },
+        body: data
+      });
+
+      if (res.ok) {
+        toast.success(editingNews ? 'Noticia actualizada' : 'Noticia publicada', { id: toastId });
+        setIsModalOpen(false);
+        fetchNews();
+      } else {
+        throw new Error('Error en la operación');
+      }
+    } catch (error) {
+      toast.error('Error al guardar la noticia', { id: toastId });
+    }
+  };
+
+  const filteredNews = news.filter(n => 
+    n.title.toLowerCase().includes(filter.toLowerCase())
+  );
+
+  const SkeletonCard = () => (
+    <div className="card overflow-hidden flex flex-col h-full animate-pulse shadow-none">
+      <div className="h-48 bg-[var(--border)] opacity-30"></div>
+      <div className="p-4 flex-1 flex flex-col">
+        <div className="h-6 w-3/4 bg-[var(--border)] opacity-50 rounded mb-2"></div>
+        <div className="space-y-2 mb-4 flex-1">
+          <div className="h-4 w-full bg-[var(--border)] opacity-30 rounded"></div>
+          <div className="h-4 w-full bg-[var(--border)] opacity-30 rounded"></div>
+          <div className="h-4 w-2/3 bg-[var(--border)] opacity-30 rounded"></div>
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="admin-container animate-fade-in">
+      <div className="admin-header">
+        <div>
+          <h1 className="admin-title">Noticias</h1>
+          <p className="text-[var(--text-muted)] mt-1">Gestiona las novedades y comunicados del club</p>
+        </div>
+        <button className="btn btn-primary shadow-lg hover:shadow-xl transition-all duration-300" onClick={() => handleOpenModal()}>
+          <Plus size={18} />
+          Nueva Noticia
+        </button>
+      </div>
+
+      <div className="card">
+        <div className="search-wrapper">
+          <Search className="search-icon" size={18} />
+          <input 
+            type="text" 
+            className="input" 
+            placeholder="Buscar noticia..." 
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+          />
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {[1, 2, 3, 4, 5, 6].map(i => <SkeletonCard key={i} />)}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredNews.map((item, index) => (
+            <div 
+              key={item.id} 
+              className="card overflow-hidden flex flex-col h-full hover-card animate-slide-up group"
+              style={{ animationDelay: `${index * 50}ms` }}
+            >
+              <div className="relative h-48 overflow-hidden group">
+                <img 
+                  src={item.image_url ? (item.image_url.startsWith('http') ? item.image_url : `${API.replace('/api', '')}${item.image_url}`) : '/placeholder-news.jpg'} 
+                  alt={item.title}
+                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                  onError={(e) => { e.target.src = 'https://placehold.co/600x400?text=Noticia'; }}
+                />
+                <div className="card-overlay">
+                   <button 
+                    onClick={() => handleOpenModal(item)}
+                    className="btn-overlay text-[var(--primary)]"
+                    title="Editar"
+                  >
+                    <Edit size={20} />
+                  </button>
+                  <button 
+                    onClick={() => handleDelete(item.id)}
+                    className="btn-overlay text-[var(--destructive)]"
+                    title="Eliminar"
+                  >
+                    <Trash2 size={20} />
+                  </button>
+                </div>
+                <div className="absolute top-3 right-3">
+                  <span className="badge badge-neutral shadow-sm backdrop-blur-md border border-[var(--border)]">
+                    {new Date(item.created_at || Date.now()).toLocaleDateString()}
+                  </span>
+                </div>
+              </div>
+              
+              <div className="p-5 flex-1 flex flex-col">
+                <h3 className="text-lg font-bold mb-2 text-[var(--text)] line-clamp-2 leading-tight group-hover:text-[var(--primary)] transition-colors">
+                  {item.title}
+                </h3>
+                <p className="text-[var(--text-muted)] text-sm mb-4 line-clamp-3 flex-1 leading-relaxed">
+                  {item.content}
+                </p>
+                
+                <div className="card-footer text-xs">
+                   <Eye size={14} />
+                   <span>Visto por socios</span>
+                </div>
+              </div>
+            </div>
+          ))}
+          
+          {filteredNews.length === 0 && (
+            <div className="col-span-full py-16 text-center bg-[var(--surface)] rounded-xl border border-[var(--border)] border-dashed animate-fade-in">
+              <div className="w-16 h-16 bg-[var(--background)] rounded-full flex items-center justify-center mx-auto mb-4 text-[var(--text-muted)]">
+                <Newspaper size={32} />
+              </div>
+              <h3 className="text-lg font-medium text-[var(--text)] mb-1">No hay noticias</h3>
+              <p className="text-[var(--text-muted)]">No se encontraron noticias con los filtros actuales</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingNews ? "Editar Noticia" : "Nueva Noticia"}>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="label">Título</label>
+            <input 
+              type="text" 
+              className="input w-full" 
+              value={formData.title}
+              onChange={e => setFormData({...formData, title: e.target.value})}
+              required
+            />
+          </div>
+          
+          <div>
+            <label className="label">Contenido</label>
+            <textarea 
+              className="input w-full h-40 resize-none" 
+              value={formData.content}
+              onChange={e => setFormData({...formData, content: e.target.value})}
+              required
+            />
+          </div>
+
+          <div>
+            <label className="label">Imagen</label>
+            <input 
+              type="file" 
+              accept="image/*"
+              className="input w-full input-file" 
+              onChange={handleImageChange}
+            />
+            {formData.previewUrl && (
+              <div className="img-preview h-48">
+                <img src={formData.previewUrl} alt="Preview" className="w-full h-full object-contain" />
+              </div>
+            )}
+          </div>
+          
+          <div className="modal-footer">
+            <button 
+              type="button" 
+              onClick={() => setIsModalOpen(false)}
+              className="btn btn-ghost"
+            >
+              Cancelar
+            </button>
+            <button 
+              type="submit" 
+              className="btn btn-primary"
+            >
+              {editingNews ? 'Guardar Cambios' : 'Publicar Noticia'}
+            </button>
+          </div>
+        </form>
+      </Modal>
+    </div>
+  );
+};
+
+export default News;

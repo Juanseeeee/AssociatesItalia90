@@ -1,0 +1,1 @@
+echo Hello > c:\Users\juans\Documents\trae_projects\AssociatesItalia90\backend\output_bat.txt

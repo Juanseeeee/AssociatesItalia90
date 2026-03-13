@@ -1,0 +1,31 @@
+🚀 Iniciando verificación integral de los 5 módulos...
+⚠️ Backend parece no estar respondiendo en /api/health, intentando /api/activities para verificar...
+✅ Backend online.
+
+--- 🧪 PROBANDO MÓDULO 2: Gestión Documental (Solicitud de Ingreso) ---
+Enviando solicitud de ingreso con documentos...
+✅ Solicitud con documentos enviada exitosamente (Módulo 2 OK)
+
+--- 🛠️ SETUP: Creando socio activo para pruebas de Módulos 4 y 1 ---
+Creando socio directo...
+✅ Socio activo creado para pruebas
+ID del socio de prueba: NUyruOdHae9_s_gsuOsS6
+
+--- 🧪 PROBANDO MÓDULO 4: Carnet Digital (Endpoint de Verificación) ---
+✅ Endpoint de verificación responde correctamente (Módulo 4 OK)
+   Datos retornados: TestUser Integration, Estado: active
+
+--- 🧪 PROBANDO MÓDULO 1: Registro a Actividad y Pago ---
+Usando actividad existente: Fútbol 5 (ID: futbol)
+Inscribiendo socio NUyruOdHae9_s_gsuOsS6 a actividad futbol...
+✅ Inscripción creada exitosamente.
+Simulando pago para inscripción tKSiMlAd9wJFWT5CiSYQL...
+✅ Pago procesado y aprobado (Módulo 1 OK)
+
+--- 🧪 PROBANDO MÓDULO 5 & 3: Autorización de Viaje y Firmas ---
+Creando solicitud de autorización de viaje...
+✅ Solicitud creada. Estado inicial: pending_parent2
+Simulando firma del segundo padre para autorización eJ0oP_ozBPttkh2i2BnD7...
+✅ Firma de segundo padre registrada. Estado final: APPROVED (Módulo 3 & 5 OK)
+
+🎉 VERIFICACIÓN INTEGRAL COMPLETADA.

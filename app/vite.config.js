@@ -9,7 +9,13 @@ export default defineConfig({
     }
   },
   server: {
-    port: 5173
+    port: 5173,
+    proxy: {
+      '/uploads': {
+        target: 'http://localhost:3003',
+        changeOrigin: true
+      }
+    }
   },
   test: {
     globals: true,

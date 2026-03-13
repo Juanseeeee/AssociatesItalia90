@@ -3,13 +3,27 @@ import { View, Text, TouchableOpacity, TextInput, StyleSheet, ScrollView, ImageB
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import supabaseClient from './supabaseClient';
 import { validateLuhn, validateExpiryDate, validateCVV, validateCardName, capitalizeName, formatExpiryDate, formatCardNumber, getCardType } from './utils/validation';
-import AdminRoutes from './Admin';
+import AdminRoutes from './admin/AdminRoutes';
+import MembershipForm from './MembershipForm';
+import DigitalID from './DigitalID';
+import TravelAuthorization from './TravelAuthorization';
+import TravelAuthorizationSign from './TravelAuthorizationSign';
+import MemberVerification from './MemberVerification';
+import PaymentForm from './PaymentForm';
 
-const API = import.meta.env.VITE_API_URL || '/api';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import Login from './auth/Login';
+import Register from './auth/Register';
+import UserDashboard from './user/UserDashboard';
+import FamilyManager from './user/FamilyManager';
+import RequireAuth from './auth/RequireAuth';
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3003/api';
 
 function PageHeader(){
   const navigate = useNavigate();
   const location = useLocation();
+  const { user } = useAuth();
   const [scrolled, setScrolled] = useState(false);
   const [hoveredItem, setHoveredItem] = useState(null);
 
@@ -37,7 +51,8 @@ function PageHeader(){
       subItems: [
         { label: 'Beneficios de socio', path: '/socios' },
         { label: 'Actividades', path: '/actividades' },
-        { label: 'Asociarme', path: '/asociate' }
+        { label: 'Asociarme', path: '/register' },
+        { label: 'Autorización Viaje', path: '/tramites/viaje' }
       ]
     },
     { 
@@ -50,6 +65,14 @@ function PageHeader(){
       ]
     },
   ];
+
+  const handleAssociate = () => {
+    if (user) {
+      navigate('/dashboard');
+    } else {
+      navigate('/register');
+    }
+  };
 
   return(
     <View style={[styles.headerBar, scrolled && styles.headerBarScrolled]}>
@@ -87,11 +110,12 @@ function PageHeader(){
               </View>
             ))}
           </View>
-          <TouchableOpacity style={styles.btnHeader} onPress={()=>navigate('/asociate')}>
+          <TouchableOpacity style={styles.btnHeader} onPress={handleAssociate}>
             <Text style={styles.btnHeaderText}>ASOCIATE</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={()=>navigate('/perfil')} style={styles.profileIcon}>
+          <TouchableOpacity onPress={()=>navigate(user ? '/dashboard' : '/login')} style={styles.profileIcon}>
             <Text style={styles.profileEmoji}>👤</Text>
+            {user && <Text style={{fontSize:10, color:'#fff', position:'absolute', bottom:-15, width:60, textAlign:'center'}}>{user.firstName}</Text>}
           </TouchableOpacity>
         </View>
       </View>
@@ -172,14 +196,14 @@ function Nav({ route, setRoute }) {
 }
 
 function Hero({ title, subtitle, cta1, cta2, image, images, interval=7000 }) {
-  const imgs = useMemo(()=> (images && images.length ? images : (image ? [image] : ['/assets/hero-cancha-pan.jpg'])), [images, image]);
+  const imgs = useMemo(()=> (images && images.length ? images : (image ? [image] : ['/assets/hero-campania2.jpeg'])), [images, image]);
   const [idx,setIdx]=useState(0);
   useEffect(()=>{
     if(imgs.length<=1) return;
     const t=setInterval(()=>setIdx(i=>(i+1)%imgs.length), interval);
     return ()=>clearInterval(t);
   },[imgs.length, interval]);
-  const current = imgs[idx] || '/assets/hero-cancha-pan.jpg';
+  const current = imgs[idx] || '/assets/hero-campania2.jpeg';
   return (
     <ImageBackground source={{uri: current}} style={styles.heroImg} imageStyle={styles.heroImgInner}>
       <View style={styles.heroOverlay}/>
@@ -308,6 +332,14 @@ function Footer(){
 }
 
 export default function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
+  );
+}
+
+function AppContent() {
   const navigate = useNavigate();
   const location = useLocation(); // Añadido para verificar ruta
   const [route, setRoute] = useState('home');
@@ -331,17 +363,23 @@ export default function App() {
   };
 
   useEffect(() => {
-    fetch(`${API}/kpi`).then(r=>r.json()).then(setKpis).catch(()=>{});
-    fetch(`${API}/activities`).then(r=>r.json()).then(setActivities).catch(()=>{});
-    fetch(`${API}/payments`).then(r=>r.json()).then(setPayments).catch(()=>{});
-    fetch(`${API}/fixtures`).then(r=>r.json()).then(setFixtures).catch(()=>{});
-    fetch(`${API}/services`).then(r=>r.json()).then(setServices).catch(()=>{});
+    fetch(`${API_URL}/kpi`, { cache: 'no-store' }).then(r=>r.json()).then(d => setKpis(d || { memberships: 0, payments: 0, activities: 0 })).catch(()=>{});
+    fetch(`${API_URL}/activities`, { cache: 'no-store' }).then(r=>r.json()).then(d => setActivities(Array.isArray(d) ? d : [])).catch(()=>{});
+    fetch(`${API_URL}/payments`, { cache: 'no-store' }).then(r=>r.json()).then(d => setPayments(Array.isArray(d) ? d : [])).catch(()=>{});
+    fetch(`${API_URL}/fixtures`, { cache: 'no-store' }).then(r=>r.json()).then(d => setFixtures(Array.isArray(d) ? d : [])).catch(()=>{});
+    fetch(`${API_URL}/services`, { cache: 'no-store' }).then(r=>r.json()).then(d => setServices(Array.isArray(d) ? d : [])).catch(()=>{});
   }, []);
 
   // Refrescar noticias al navegar a inicio o noticias para reflejar cambios del admin
   useEffect(() => {
     if (location.pathname === '/' || location.pathname === '/noticias' || location.pathname === '/institucional') {
-       fetch(`${API}/news`).then(r=>r.json()).then(setNews).catch(()=>{});
+       fetch(`${API_URL}/news`, { cache: 'no-store' })
+         .then(r=>r.json())
+         .then(d => setNews(Array.isArray(d) ? d : []))
+         .catch(e => {
+           console.error("Error fetching news:", e);
+           setNews([]);
+         });
     }
   }, [location.pathname]);
 
@@ -356,7 +394,7 @@ export default function App() {
             <Hero
               title="Campaña de Socios"
               subtitle="Sumate al Italia 90 con una experiencia moderna en web y mobile."
-              cta1={<TouchableOpacity style={styles.btn} onPress={() => navigate('/asociate')}><Text style={styles.btnTextPrimary}>Quiero Asociarme</Text></TouchableOpacity>}
+              cta1={<TouchableOpacity style={styles.btn} onPress={() => navigate('/register')}><Text style={styles.btnTextPrimary}>Quiero Asociarme</Text></TouchableOpacity>}
               cta2={<TouchableOpacity style={styles.btnGhost} onPress={() => navigate('/actividades')}><Text style={styles.btnTextGhost}>Ver Actividades</Text></TouchableOpacity>}
               images={['/assets/hero-campania.jpg','/assets/hero-campania2.jpeg','/assets/fondo-celebracion.jpg']}
               interval={7000}
@@ -374,7 +412,7 @@ export default function App() {
                 <View style={styles.newsFeaturedCol}>
                   {(news||[])[0] && (
                     <TouchableOpacity key={(news||[])[0].id} style={styles.newsFeatured} onPress={()=>navigate('/noticias')}>
-                      <ImageBackground source={{uri: '/assets/escuela-futbol-1.jpg'}} style={styles.newsFeaturedBg} imageStyle={{borderRadius: 8}}>
+                      <ImageBackground source={{uri: (news||[])[0].image || '/assets/escuelita-1.jpg'}} style={styles.newsFeaturedBg} imageStyle={{borderRadius: 8}}>
                         <View style={styles.newsOverlay}>
                           <View style={styles.newsTag}><Text style={styles.newsTagText}>INSTITUCIONAL</Text></View>
                           <Text style={styles.newsFeaturedTitle}>{(news||[])[0].title}</Text>
@@ -387,7 +425,7 @@ export default function App() {
                 <View style={styles.newsSecondaryGrid}>
                   {(news||[]).slice(1,5).map(n => (
                     <TouchableOpacity key={n.id} style={styles.newsSecondaryCard} onPress={()=>navigate('/noticias')}>
-                      <Image source={{uri: '/assets/cancha-interna-1.jpg'}} style={styles.newsSecondaryImg} />
+                      <Image source={{uri: n.image || '/assets/deportes-1.jpg'}} style={styles.newsSecondaryImg} />
                       <View style={styles.newsSecondaryContent}>
                         <Text style={styles.newsDate}>{new Date().toLocaleDateString('es-AR')}</Text>
                         <Text style={styles.newsSecondaryTitle} numberOfLines={3}>{n.title}</Text>
@@ -405,7 +443,7 @@ export default function App() {
                 <Text style={styles.membershipTitle}>SE PARTE DE LA HISTORIA</Text>
                 <Text style={styles.membershipSubtitle}>Asociate hoy y disfrutá de todos los beneficios del club.</Text>
                 <View style={styles.rowCenter}>
-                  <TouchableOpacity style={styles.btnLg} onPress={()=>navigate('/asociate')}>
+                  <TouchableOpacity style={styles.btnLg} onPress={()=>navigate('/register')}>
                     <Text style={styles.btnTextLg}>QUIERO SER SOCIO</Text>
                   </TouchableOpacity>
                 </View>
@@ -428,7 +466,7 @@ export default function App() {
                 </TouchableOpacity>
                 {(activities||[]).map(a => (
                   <TouchableOpacity key={a.id} style={styles.activityCard} onPress={()=>navigate('/actividades')}>
-                    <Image source={{uri: '/assets/escuela-futbol-1.jpg'}} style={styles.activityImg}/>
+                    <Image source={{uri: a.image || '/assets/escuelita-1.jpg'}} style={styles.activityImg}/>
                     <View style={styles.activityOverlay}>
                       <Text style={styles.activityTitle}>{a.name}</Text>
                     </View>
@@ -442,7 +480,7 @@ export default function App() {
 
   const AsociateContent = () => (
     <>
-          <ImageBackground source={{uri: '/assets/hero-cancha-ras.jpg'}} style={styles.pageHero}>
+          <ImageBackground source={{uri: '/assets/hero-campania.jpg'}} style={styles.pageHero}>
             <View style={styles.pageHeroOverlay}>
               <View style={styles.wrapper}>
                 <Text style={styles.pageHeroTitle}>ASOCIATE ONLINE</Text>
@@ -452,11 +490,7 @@ export default function App() {
           </ImageBackground>
           <View style={styles.sectionContainer}>
             <View style={styles.wrapperNarrow}>
-              <View style={styles.authCard}>
-                 <Text style={styles.formTitle}>Formulario de Inscripción</Text>
-                 <Text style={styles.formSubtitle}>Completá tus datos para finalizar la solicitud.</Text>
-                 <AssociateForm onDone={(prefill)=>navigate('/pagos',{ state: { prefill }})} />
-              </View>
+                 <MembershipForm />
             </View>
           </View>
     </>
@@ -504,13 +538,42 @@ export default function App() {
 
                   {activities.map(a=>(
                     <View key={a.id} style={styles.activityItemCard}>
-                      <Image source={{uri: '/assets/escuelita-4.jpg'}} style={styles.activityItemImg}/>
+                      <Image source={{uri: a.image || '/assets/escuelita-4.jpg'}} style={styles.activityItemImg}/>
                       <View style={styles.activityItemContent}>
                       <Text style={styles.activityItemTitle}>{a.name}</Text>
                       <View style={styles.row}>
                          <Text style={styles.activityItemInfo}>Cupos: {a.slots}</Text>
+                         {a.cost > 0 && <Text style={[styles.activityItemInfo, {color: '#049756', fontWeight: 'bold', marginLeft: 10}]}>${a.cost}/mes</Text>}
                       </View>
-                      <TouchableOpacity style={styles.btnOutline}><Text style={styles.btnTextOutline}>Inscribirme</Text></TouchableOpacity>
+                      <TouchableOpacity style={styles.btnOutline} onPress={async () => {
+                        if (!session) {
+                           navigate('/perfil');
+                           return;
+                        }
+                        try {
+                          const res = await fetch(`${API_URL}/activities/${a.id}/register`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ email: session.email })
+                          });
+                          const data = await res.json();
+                          if (!res.ok) {
+                            alert(data.error || 'Error al inscribirse');
+                            return;
+                          }
+                          if (data.payment_required) {
+                            navigate('/pagos', { state: { concept: `Inscripción: ${a.name}`, amount: a.cost, enrollment_id: data.enrollment.id } });
+                          } else {
+                            alert('¡Inscripción exitosa!');
+                            navigate('/perfil');
+                          }
+                        } catch (e) {
+                          console.error(e);
+                          alert('Error de conexión');
+                        }
+                      }}>
+                        <Text style={styles.btnTextOutline}>Inscribirme</Text>
+                      </TouchableOpacity>
                     </View>
                   </View>
                 ))}
@@ -523,7 +586,7 @@ export default function App() {
 
   const ServiciosContent = () => (
     <>
-          <ImageBackground source={{uri: '/assets/cancha-interna-1.jpg'}} style={styles.pageHero}>
+          <ImageBackground source={{uri: '/assets/deportes-1.jpg'}} style={styles.pageHero}>
             <View style={styles.pageHeroOverlay}>
               <View style={styles.wrapper}>
                 <Text style={styles.pageHeroTitle}>INSTITUCIONAL</Text>
@@ -538,7 +601,7 @@ export default function App() {
               <View style={styles.servicesGrid}>
                 {(services||[]).map(s=>(
                   <View key={s.id} style={styles.serviceCardWide}>
-                    <Image source={{uri: '/assets/cancha-interna-1.jpg'}} style={styles.serviceWideImg}/>
+                    <Image source={{uri: s.image || '/assets/deportes-1.jpg'}} style={styles.serviceWideImg}/>
                     <View style={styles.serviceWideContent}>
                       <Text style={styles.serviceWideTitle}>{s.name}</Text>
                       <Text style={styles.p}>{s.description}</Text>
@@ -602,7 +665,7 @@ export default function App() {
                   <Text style={styles.pricingFeature}>✓ Grupo familiar directo</Text>
                   <Text style={styles.pricingFeature}>✓ Acceso para todos</Text>
                   <Text style={styles.pricingFeature}>✓ Escuelas deportivas bonificadas</Text>
-                  <TouchableOpacity style={styles.btnOutline} onPress={()=>navigate('/asociate')}><Text style={styles.btnTextOutline}>ASOCIARME</Text></TouchableOpacity>
+                  <TouchableOpacity style={styles.btnOutline} onPress={()=>navigate('/register')}><Text style={styles.btnTextOutline}>ASOCIARME</Text></TouchableOpacity>
                 </View>
               </View>
 
@@ -699,8 +762,17 @@ export default function App() {
     <ScrollView style={styles.page}>
       {!isAdminRoute && <PageHeader/>}
       <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+        <Route path="/dashboard" element={<RequireAuth><UserDashboard /></RequireAuth>} />
+        <Route path="/family" element={<RequireAuth><FamilyManager /></RequireAuth>} />
+        <Route path="/family/add" element={<RequireAuth><FamilyManager /></RequireAuth>} />
         <Route path="/" element={<HomeContent/>}/>
-        <Route path="/asociate" element={<AsociateContent/>}/>
+        <Route path="/asociate" element={<MembershipForm/>}/>
+        <Route path="/digital-id/:id" element={<DigitalID/>}/>
+        <Route path="/tramites/viaje" element={<TravelAuthorization/>}/>
+        <Route path="/autorizacion-viaje/:id" element={<TravelAuthorizationSign/>}/>
+        <Route path="/verificar-socio/:id" element={<MemberVerification/>}/>
         <Route path="/actividades" element={<ActividadesContent/>}/>
         <Route path="/servicios" element={<ServiciosContent/>}/>
         <Route path="/socios" element={<SociosContent/>}/>
@@ -720,12 +792,16 @@ export default function App() {
 
 
 function Profile({ session }){
+  const navigate = useNavigate();
   const [ms,setMs]=useState([]);
   const [ps,setPs]=useState([]);
+  const [acts,setActs]=useState([]);
+
   useEffect(()=>{
     if(session?.email){
-      fetch(`${API}/memberships/by-email?email=${encodeURIComponent(session.email)}`).then(r=>r.json()).then(setMs).catch(()=>{});
-      fetch(`${API}/payments/by-email?email=${encodeURIComponent(session.email)}`).then(r=>r.json()).then(setPs).catch(()=>{});
+      fetch(`${API_URL}/memberships/by-email?email=${encodeURIComponent(session.email)}`).then(r=>r.json()).then(setMs).catch(()=>{});
+      fetch(`${API_URL}/payments/by-email?email=${encodeURIComponent(session.email)}`).then(r=>r.json()).then(setPs).catch(()=>{});
+      fetch(`${API_URL}/my-activities?email=${encodeURIComponent(session.email)}`).then(r=>r.json()).then(setActs).catch(()=>{});
     }
   },[session]);
   const m = ms[0];
@@ -752,6 +828,10 @@ function Profile({ session }){
              </View>
           </View>
 
+          <TouchableOpacity style={[styles.btn, {marginTop: 15, marginBottom: 15}]} onPress={()=>navigate(`/digital-id/${m.id}`)}>
+             <Text style={styles.btnTextPrimary}>VER CARNET DIGITAL</Text>
+          </TouchableOpacity>
+
           <View style={styles.authCard}>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionHeaderTitle}>MIS DATOS</Text>
@@ -769,12 +849,34 @@ function Profile({ session }){
                 <Text style={styles.tableCellBold}>{session.email}</Text>
              </View>
           </View>
+
+          <View style={styles.sectionSpacer}/>
+          <View style={styles.authCard}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionHeaderTitle}>MIS ACTIVIDADES</Text>
+            </View>
+            {acts.length===0 ? <Text style={styles.p}>No estás inscripto en actividades.</Text> : 
+              acts.map(a=>(
+                <View key={a.id} style={styles.tableRow}>
+                   <View>
+                      <Text style={styles.tableCellBold}>{a.activity_name}</Text>
+                      <Text style={styles.tableCell}>{a.activity_schedule}</Text>
+                   </View>
+                   <View style={[styles.statusBadge, a.status==='confirmed'?styles.statusSuccess:styles.statusWarning]}>
+                      <Text style={[styles.statusText, a.status==='confirmed'?styles.statusSuccessText:styles.statusWarningText]}>
+                        {a.status === 'confirmed' ? 'CONFIRMADO' : 'PENDIENTE PAGO'}
+                      </Text>
+                   </View>
+                </View>
+              ))
+            }
+          </View>
         </>
       ) : (
         <View style={styles.calloutBox}>
            <Text style={styles.calloutTitle}>No sos socio aún</Text>
            <Text style={styles.calloutText}>Asociate hoy mismo para disfrutar de todos los beneficios.</Text>
-           <TouchableOpacity style={styles.btn}><Text style={styles.btnTextPrimary}>ASOCIARME AHORA</Text></TouchableOpacity>
+           <TouchableOpacity style={styles.btn} onPress={()=>navigate('/register')}><Text style={styles.btnTextPrimary}>ASOCIARME AHORA</Text></TouchableOpacity>
         </View>
       )}
 
@@ -829,7 +931,7 @@ function Auth({ setSession }) {
         <TouchableOpacity style={[styles.btnLg, styles.authBtn]} onPress={async ()=>{
           const endpoint = isRegister ? '/auth/register' : '/auth/login';
           const body = isRegister ? {email,pass,name} : {email,pass};
-          const r=await fetch(`${API}${endpoint}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+          const r=await fetch(`${API_URL}${endpoint}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
           if(r.ok){
              if(isRegister) {
                 setSession({email,name});
@@ -855,77 +957,8 @@ function Auth({ setSession }) {
 }
 
 function AssociateForm({ onDone }) {
-  const [plan,setPlan]=useState('individual');
-  const [name,setName]=useState('');
-  const [dni,setDni]=useState('');
-  const [email,setEmail]=useState('');
-  const [phone,setPhone]=useState('');
-  const [errors,setErrors]=useState({});
-  
-  const plans = [
-    {id: 'menor', label: 'MENOR', price: 8000},
-    {id: 'individual', label: 'INDIVIDUAL', price: 12000},
-    {id: 'familiar', label: 'FAMILIAR', price: 24000}
-  ];
-  
-  const currentPlan = plans.find(p=>p.id===plan);
-
-  const validate = () => {
-     const newErrors = {};
-     if(!name.trim()) newErrors.name = true;
-     if(!dni.trim() || dni.length < 7) newErrors.dni = true;
-     if(!email.trim() || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) newErrors.email = true;
-     if(!phone.trim()) newErrors.phone = true;
-     setErrors(newErrors);
-     return Object.keys(newErrors).length === 0;
-  };
-
-  return (
-    <View>
-      <Text style={styles.inputLabel}>Seleccioná tu Plan</Text>
-      <View style={styles.planSelector}>
-        {plans.map(p=>(
-          <TouchableOpacity key={p.id} style={[styles.pillModern, plan===p.id && styles.pillModernActive]} onPress={()=>setPlan(p.id)}>
-            <Text style={[styles.pillTextModern, plan===p.id && styles.pillTextModernActive]}>{p.label}</Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
-      <Text style={styles.inputLabel}>Nombre Completo</Text>
-      <TextInput style={[styles.inputModern, errors.name && styles.inputError]} placeholder="Nombre y Apellido" value={name} onChangeText={setName}/>
-      
-      <Text style={styles.inputLabel}>DNI</Text>
-      <TextInput style={[styles.inputModern, errors.dni && styles.inputError]} placeholder="Sin puntos ni espacios" value={dni} onChangeText={t=>setDni(t.replace(/[^\d]/g,''))} keyboardType="numeric"/>
-      
-      <Text style={styles.inputLabel}>Email</Text>
-      <TextInput style={[styles.inputModern, errors.email && styles.inputError]} placeholder="tu@email.com" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none"/>
-      
-      <Text style={styles.inputLabel}>Teléfono</Text>
-      <TextInput style={[styles.inputModern, errors.phone && styles.inputError]} placeholder="Cod. área + número" value={phone} onChangeText={setPhone} keyboardType="phone-pad"/>
-      
-      <View style={styles.totalBox}>
-         <Text style={styles.totalLabel}>Total a pagar</Text>
-         <Text style={styles.totalAmount}>${currentPlan.price}</Text>
-      </View>
-
-      <TouchableOpacity style={styles.btnLg} onPress={()=>{
-        if(!validate()) return;
-        // En lugar de enviar, pasamos los datos al siguiente paso (pago)
-        onDone && onDone({ 
-          name, 
-          dni, 
-          email, 
-          phone, 
-          plan, 
-          price: currentPlan.price,
-          concept: `Cuota Social Plan ${currentPlan.label}`, 
-          amount: String(currentPlan.price)
-        });
-      }}>
-         <Text style={styles.btnTextLg}>CONTINUAR AL PAGO</Text>
-      </TouchableOpacity>
-    </View>
-  );
+  // Deprecated - Replaced by MembershipForm
+  return null;
 }
 
 const PaymentSuccess = () => {
@@ -982,300 +1015,7 @@ const PaymentPending = () => {
   );
 };
 
-function PaymentForm({ onDone }) {
-  const location = useLocation();
-  const [memberData, setMemberData] = useState(null);
-  const [concept,setConcept]=useState('cuota');
-  const [amount,setAmount]=useState('');
-  const [email,setEmail]=useState('');
-  const [paymentMethod, setPaymentMethod] = useState('mp'); // 'mp' | 'card'
 
-  // Form State
-  const [card, setCard] = useState('');
-  const [name, setName] = useState('');
-  const [exp, setExp] = useState('');
-  const [cvv, setCvv] = useState('');
-  const [cardType, setCardType] = useState('');
-  
-  // Validation State
-  const [errors, setErrors] = useState({});
-  const [touched, setTouched] = useState({});
-  const [isValid, setIsValid] = useState(false);
-  const [showCvvHelp, setShowCvvHelp] = useState(false);
-  
-  useEffect(()=>{
-    const data = location?.state?.prefill; 
-    if(data){
-      setMemberData(data);
-      if(data.concept) setConcept(data.concept);
-      if(data.amount) setAmount(data.amount);
-      if(data.email) setEmail(data.email);
-    }
-  },[]);
-
-  // Validation Logic
-  useEffect(() => {
-    if (paymentMethod === 'mp') {
-      setIsValid(true);
-      return;
-    }
-    const hasErrors = Object.keys(errors).length > 0;
-    const allFilled = card && name && exp && cvv;
-    setIsValid(allFilled && !hasErrors);
-  }, [errors, card, name, exp, cvv, paymentMethod]);
-
-  const validateField = (field, value) => {
-    let error = '';
-    switch(field) {
-      case 'card':
-        const rawCard = value.replace(/\s/g, '');
-        if (!value) error = 'El número de tarjeta es obligatorio';
-        else if (rawCard.length < 13) error = 'El número está incompleto';
-        else if (!validateLuhn(value)) error = 'El número de tarjeta no es válido';
-        break;
-      case 'name':
-        if (!value) error = 'El nombre es obligatorio';
-        else if (!validateCardName(value)) error = 'Ingrese nombre completo (solo letras)';
-        break;
-      case 'exp':
-        if (!value) error = 'Requerido';
-        else if (!validateExpiryDate(value)) error = 'Fecha inválida (MM/YY)';
-        break;
-      case 'cvv':
-        if (!value) error = 'Requerido';
-        else if (!validateCVV(value)) error = '3 dígitos';
-        break;
-    }
-    return error;
-  };
-
-  const handleChange = (field, value) => {
-    let formatted = value;
-
-    if (field === 'card') {
-      formatted = formatCardNumber(value);
-      const type = getCardType(formatted);
-      setCardType(type);
-      setCard(formatted);
-    } else if (field === 'name') {
-      formatted = capitalizeName(value);
-      setName(formatted);
-    } else if (field === 'exp') {
-      formatted = formatExpiryDate(value);
-      setExp(formatted);
-    } else if (field === 'cvv') {
-      formatted = value.replace(/\D/g, '').slice(0, 4);
-      setCvv(formatted);
-    }
-
-    // Real-time validation
-    const error = validateField(field, formatted);
-    setErrors(prev => {
-      const newErrors = { ...prev };
-      if (error) newErrors[field] = error;
-      else delete newErrors[field];
-      return newErrors;
-    });
-  };
-
-  const handleBlur = (field) => {
-    setTouched(prev => ({ ...prev, [field]: true }));
-    const value = field === 'card' ? card : field === 'name' ? name : field === 'exp' ? exp : cvv;
-    const error = validateField(field, value);
-    setErrors(prev => {
-      const newErrors = { ...prev };
-      if (error) newErrors[field] = error;
-      else delete newErrors[field];
-      return newErrors;
-    });
-  };
-
-  const renderInput = (field, label, value, placeholder, props = {}) => {
-    const hasError = touched[field] && errors[field];
-    const isSuccess = touched[field] && !errors[field] && value;
-    
-    return (
-      <View style={styles.inputGroup}>
-        <Text style={styles.inputLabel}>{label}</Text>
-        <View style={{position: 'relative'}}>
-            <TextInput
-            style={[
-                styles.inputModern,
-                styles.inputModernNoMargin,
-                hasError && styles.inputErrorState,
-                isSuccess && styles.inputSuccessState,
-                props.style
-            ]}
-            value={value}
-            placeholder={placeholder}
-            onChangeText={(text) => handleChange(field, text)}
-            onBlur={() => handleBlur(field)}
-            {...props}
-            />
-            {/* Success/Error Icons */}
-            {(hasError || isSuccess) && (
-            <View style={styles.iconRight}>
-                <Text>{hasError ? '⚠️' : '✅'}</Text>
-            </View>
-            )}
-            {/* Card Type Badge */}
-            {field === 'card' && cardType && !hasError && (
-            <View style={styles.cardTypeBadge}>
-                <Text style={styles.cardTypeText}>{cardType}</Text>
-            </View>
-            )}
-        </View>
-        {hasError && (
-          <Text style={styles.validationMessage}>{errors[field]}</Text>
-        )}
-      </View>
-    );
-  };
-
-  return (
-    <View>
-      <Text style={styles.formTitle}>Realizar Pago y Finalizar</Text>
-      <Text style={styles.formSubtitle}>Elegí tu método de pago para confirmar la asociación.</Text>
-      
-      <Text style={styles.inputLabel}>Método de Pago</Text>
-      <View style={{flexDirection:'row', gap:10, marginBottom:20}}>
-        <TouchableOpacity style={[styles.pillModern, paymentMethod==='mp' && styles.pillModernActive]} onPress={()=>setPaymentMethod('mp')}>
-          <Text style={[styles.pillTextModern, paymentMethod==='mp' && styles.pillTextModernActive]}>Mercado Pago</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={[styles.pillModern, paymentMethod==='card' && styles.pillModernActive]} onPress={()=>setPaymentMethod('card')}>
-          <Text style={[styles.pillTextModern, paymentMethod==='card' && styles.pillTextModernActive]}>Tarjeta (Mock)</Text>
-        </TouchableOpacity>
-      </View>
-
-      <Text style={styles.inputLabel}>Email del socio</Text>
-      <TextInput style={[styles.inputModern, styles.inputReadonly]} editable={false} placeholder="Email del socio" value={email} onChangeText={setEmail}/>
-      
-      <Text style={styles.inputLabel}>Concepto</Text>
-      <TextInput style={[styles.inputModern, styles.inputReadonly]} editable={false} placeholder="Concepto" value={concept}/>
-      
-      <Text style={styles.inputLabel}>Monto a Pagar</Text>
-      <View style={styles.inputCurrencyWrapper}>
-        <View style={styles.currencySymbol}><Text style={styles.currencyText}>$</Text></View>
-        <TextInput style={styles.inputCurrency} editable={false} placeholder="Monto" value={amount}/>
-      </View>
-
-      {paymentMethod === 'card' && (
-        <>
-          {renderInput('card', 'Número de Tarjeta', card, '4111 1111 1111 1111', { keyboardType: 'numeric', maxLength: 19 })}
-          {renderInput('name', 'Nombre en Tarjeta', name, 'Como figura en el plástico')}
-          
-          <View style={styles.formRow}>
-            <View style={styles.formColumn}>
-               {renderInput('exp', 'Vencimiento', exp, 'MM/YY', { keyboardType: 'numeric', maxLength: 5 })}
-            </View>
-            <View style={styles.formColumn}>
-              <View style={styles.inputGroup}>
-                <View style={[styles.labelRow, styles.mb8]}>
-                    <Text style={[styles.inputLabel, styles.mb0]}>CVV</Text>
-                    <TouchableOpacity onPress={()=>setShowCvvHelp(s=>!s)}>
-                    <Text style={styles.cvvHelpButton}>¿Qué es?</Text>
-                    </TouchableOpacity>
-                </View>
-                <View style={{position: 'relative'}}>
-                    <TextInput 
-                        style={[
-                            styles.inputModern, 
-                            styles.inputModernNoMargin,
-                            touched.cvv && errors.cvv && styles.inputErrorState,
-                            touched.cvv && !errors.cvv && cvv && styles.inputSuccessState
-                        ]}
-                        placeholder="123" 
-                        value={cvv} 
-                        onChangeText={(text)=>handleChange('cvv', text)}
-                        onBlur={()=>handleBlur('cvv')}
-                        keyboardType="numeric" 
-                        secureTextEntry
-                        maxLength={4}
-                    />
-                        {(touched.cvv && (errors.cvv || cvv)) && (
-                        <View style={styles.iconRight}>
-                            <Text>{errors.cvv ? '⚠️' : '✅'}</Text>
-                        </View>
-                    )}
-                </View>
-                {touched.cvv && errors.cvv && <Text style={styles.validationMessage}>{errors.cvv}</Text>}
-              </View>
-            </View>
-          </View>
-          
-          {showCvvHelp && <Text style={styles.cvvHelpText}>Código de 3 o 4 dígitos al dorso de la tarjeta.</Text>}
-        </>
-      )}
-
-      {paymentMethod === 'mp' && (
-        <View style={{marginBottom: 20, padding: 16, backgroundColor: '#f0f9ff', borderRadius: 8, borderWidth: 1, borderColor: '#bae6fd'}}>
-           <Text style={{color: '#0369a1', fontWeight: '600', marginBottom: 4}}>Vas a ser redirigido a Mercado Pago</Text>
-           <Text style={{color: '#0c4a6e', fontSize: 13}}>Podrás pagar con dinero en cuenta, tarjetas o efectivo.</Text>
-        </View>
-      )}
-
-      <TouchableOpacity 
-        disabled={!isValid}
-        style={[
-            styles.btnLg, 
-            paymentMethod==='mp' && {backgroundColor:'#009ee3'},
-            !isValid && styles.btnDisabledState
-        ]} 
-        onPress={async ()=>{
-        if (paymentMethod === 'card' && !isValid) return alert('Complete todos los datos de pago correctamente');
-
-        let url = `${API}/payments/charge`;
-        let body = { concept, amount, card, name, exp, cvv, email };
-
-        if (memberData) {
-           url = `${API}/members`;
-           body = {
-             ...memberData,
-             payment_method: paymentMethod === 'mp' ? 'mercadopago' : 'credit_card',
-             card_last4: paymentMethod === 'mp' ? null : card.slice(-4),
-             amount
-           };
-        } else if (paymentMethod === 'mp') {
-           url = `${API}/payments/create_preference`;
-           body = {
-             title: concept,
-             quantity: 1,
-             unit_price: amount,
-             email: email,
-             member_id: 'guest'
-           };
-        }
-
-        try {
-          const r = await fetch(url, {
-            method: 'POST',
-            headers: {'Content-Type':'application/json'},
-            body: JSON.stringify(body)
-          });
-          
-          const resData = await r.json();
-
-          if(r.ok){
-            if (resData.init_point) {
-               window.location.href = resData.init_point;
-            } else {
-               alert('¡Pago exitoso! Bienvenido al club.');
-               onDone();
-            }
-          } else {
-            alert('Error: ' + (resData.error || 'No se pudo procesar el pago'));
-          }
-        } catch(e) {
-          alert('Error de conexión');
-        }
-      }}>
-         <Text style={styles.btnTextLg}>
-           {paymentMethod==='mp' ? 'PAGAR CON MERCADO PAGO' : (memberData ? 'CONFIRMAR ASOCIACIÓN' : 'PAGAR AHORA')}
-         </Text>
-      </TouchableOpacity>
-    </View>
-  );
-}
 
 const styles = StyleSheet.create({
   page: { backgroundColor:'transparent', minHeight:'100%' },
@@ -1303,8 +1043,8 @@ const styles = StyleSheet.create({
   matchAction: { flex: 1, alignItems: 'flex-end', minWidth: 150 },
   btnOutlineLight: { borderWidth: 2, borderColor: '#fff', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 4 },
   btnTextLight: { color: '#fff', fontWeight: '700', fontSize: 14, letterSpacing: 1 },
-  brandBar: { height:4, width:'100%', flexDirection:'row' },
-  brandStripe: { flex:1 },
+  // brandBar duplicate removed
+  // brandStripe duplicate removed
   brandBar: { height:16, width:'100%', flexDirection:'row' },
   brandStripe: { flex:1 },
   brandLogo:{ width:60, height:72, resizeMode:'contain', marginRight:8, marginBottom:-10, zIndex:2 },
@@ -1375,7 +1115,7 @@ const styles = StyleSheet.create({
   ,newsTitle:{ color:'#111827', fontWeight:'700', marginBottom:4 }
   ,newsExcerpt:{ color:'#6b7280', marginBottom:8 }
   ,sponsor:{ backgroundColor:'transparent', padding:12, borderRadius:0, minWidth:160, borderWidth:1, borderColor:'#e5e7eb' }
-  ,columns:{ flexDirection:'row', gap:16, paddingHorizontal:24, paddingVertical:16, flexWrap:'wrap' }
+  // columns duplicate removed
   ,columns:{ flexDirection:'row', gap:0, paddingHorizontal:24, paddingVertical:0, flexWrap:'wrap' }
   ,colLeft:{ flexGrow:1, flexBasis:'22%', minWidth:260 }
   ,colCenter:{ flexGrow:1, flexBasis:'46%', minWidth:360 }
