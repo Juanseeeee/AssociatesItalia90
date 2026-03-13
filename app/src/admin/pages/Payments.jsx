@@ -128,13 +128,13 @@ const Payments = () => {
 
   return (
     <div className="admin-container space-y-6 animate-fade-in">
-      <div className="admin-header">
+      <div className="admin-header flex-col md:flex-row gap-4 md:items-center items-start">
         <div>
           <h1 className="admin-title">Historial de Pagos</h1>
           <p className="text-[var(--text-muted)] mt-1">Supervisa las transacciones y cuotas</p>
         </div>
-        <div className="flex gap-2">
-          <button className="btn btn-outline" onClick={handleExportCSV}>
+        <div className="flex gap-2 w-full md:w-auto">
+          <button className="btn btn-outline w-full md:w-auto justify-center min-h-[44px]" onClick={handleExportCSV}>
             <Download size={18} />
             Exportar
           </button>
@@ -143,20 +143,22 @@ const Payments = () => {
 
       <div className="card">
         <div className="flex flex-col md:flex-row gap-4 items-center justify-between mb-6">
-          <div className="search-wrapper">
+          <div className="search-wrapper w-full md:w-auto">
             <Search className="search-icon" size={18} />
             <input 
               type="text" 
-              className="input" 
+              className="input w-full min-h-[48px]" 
               placeholder="Buscar por email o concepto..." 
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
             />
           </div>
-          <div className="flex items-center gap-2 w-full md:w-auto">
-            <Filter size={18} className="text-[var(--text-muted)]" />
+          <div className="flex flex-col md:flex-row items-center gap-2 w-full md:w-auto">
+            <div className="hidden md:block">
+              <Filter size={18} className="text-[var(--text-muted)]" />
+            </div>
             <select 
-              className="input w-full md:w-48"
+              className="input w-full md:w-48 min-h-[48px]"
               value={status}
               onChange={(e) => setStatus(e.target.value)}
             >
@@ -173,11 +175,11 @@ const Payments = () => {
             <thead>
               <tr>
                 <th>Concepto</th>
-                <th>Usuario</th>
-                <th>Fecha</th>
+                <th className="hidden sm:table-cell">Usuario</th>
+                <th className="hidden md:table-cell">Fecha</th>
                 <th>Monto</th>
                 <th>Estado</th>
-                <th>Método</th>
+                <th className="hidden lg:table-cell">Método</th>
               </tr>
             </thead>
             <tbody>
@@ -196,16 +198,21 @@ const Payments = () => {
               ) : (
                 paginatedPayments.map((payment, index) => (
                   <tr key={payment.id} className="animate-slide-up" style={{ animationDelay: `${index * 30}ms` }}>
-                    <td className="font-medium text-[var(--text)]">{payment.concept || 'Cuota Social'}</td>
-                    <td className="text-[var(--text-muted)]">{payment.email}</td>
-                    <td className="text-sm text-[var(--text-muted)]">
+                    <td className="font-medium text-[var(--text)]">
+                      {payment.concept || 'Cuota Social'}
+                      <div className="sm:hidden text-xs text-[var(--text-muted)] mt-1 truncate max-w-[100px]">
+                        {payment.email}
+                      </div>
+                    </td>
+                    <td className="text-[var(--text-muted)] hidden sm:table-cell">{payment.email}</td>
+                    <td className="text-sm text-[var(--text-muted)] hidden md:table-cell">
                       {payment.created_at ? new Date(payment.created_at).toLocaleDateString() : '-'}
                     </td>
                     <td className="font-bold text-[var(--text)]">
                       ${Number(payment.amount).toLocaleString()}
                     </td>
                     <td>{getStatusBadge(payment.status)}</td>
-                    <td className="text-sm text-[var(--text-muted)] capitalize">
+                    <td className="text-sm text-[var(--text-muted)] capitalize hidden lg:table-cell">
                       {payment.method || 'Tarjeta'}
                     </td>
                   </tr>
@@ -223,21 +230,21 @@ const Payments = () => {
             </span>
             <div className="flex gap-2">
               <button 
-                className="btn btn-outline py-1 px-3 text-sm disabled:opacity-50"
+                className="btn btn-outline w-[44px] h-[44px] p-0 justify-center disabled:opacity-50"
                 disabled={page === 1}
                 onClick={() => setPage(p => Math.max(1, p - 1))}
               >
-                <ChevronLeft size={16} />
+                <ChevronLeft size={20} />
               </button>
-              <span className="flex items-center px-2 text-sm font-medium">
+              <span className="flex items-center px-4 text-sm font-medium">
                 Página {page} de {totalPages || 1}
               </span>
               <button 
-                className="btn btn-outline py-1 px-3 text-sm disabled:opacity-50"
+                className="btn btn-outline w-[44px] h-[44px] p-0 justify-center disabled:opacity-50"
                 disabled={page >= totalPages}
                 onClick={() => setPage(p => Math.min(totalPages, p + 1))}
               >
-                <ChevronRight size={16} />
+                <ChevronRight size={20} />
               </button>
             </div>
           </div>

@@ -239,23 +239,23 @@ const Activities = () => {
 
   return (
     <div className="admin-container space-y-6 animate-fade-in">
-      <div className="admin-header">
+      <div className="admin-header flex-col md:flex-row gap-4 md:items-center items-start">
         <div>
           <h1 className="admin-title">Actividades</h1>
           <p className="text-[var(--text-muted)] mt-1">Gestiona eventos, clases y torneos</p>
         </div>
-        <button className="btn btn-primary" onClick={() => handleOpenModal()}>
+        <button className="btn btn-primary w-full md:w-auto justify-center min-h-[44px]" onClick={() => handleOpenModal()}>
           <Plus size={18} />
           Nueva Actividad
         </button>
       </div>
 
       <div className="card">
-        <div className="search-wrapper">
+        <div className="search-wrapper w-full">
           <Search className="search-icon" size={18} />
           <input 
             type="text" 
-            className="input" 
+            className="input w-full min-h-[48px]" 
             placeholder="Buscar actividad..." 
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
@@ -302,31 +302,6 @@ const Activities = () => {
               </div>
             )}
             
-            {/* Overlay Actions */}
-            <div className="card-overlay">
-                <button 
-                onClick={() => handleViewEnrollments(activity)}
-                className="btn-overlay text-[var(--accent)]"
-                title="Ver Inscriptos"
-              >
-                <Users size={20} />
-              </button>
-              <button 
-                onClick={() => handleOpenModal(activity)}
-                className="btn-overlay text-[var(--primary)]"
-                title="Editar"
-              >
-                <Edit size={20} />
-              </button>
-              <button 
-                onClick={() => handleDelete(activity.id)}
-                className="btn-overlay text-[var(--destructive)]"
-                title="Eliminar"
-              >
-                <Trash2 size={20} />
-              </button>
-            </div>
-            
             <div className="absolute top-3 right-3">
                <span className="badge badge-neutral shadow-sm backdrop-blur-md border border-[var(--border)]">
                 ${activity.price}
@@ -348,7 +323,7 @@ const Activities = () => {
               </div>
             </div>
             
-            <div className="card-footer mt-auto">
+            <div className="card-footer mt-auto border-none p-0 pt-2">
               <div className="flex items-center gap-1.5 text-xs font-medium text-[var(--text-muted)] bg-[var(--background)] px-2 py-1 rounded-md">
                 <Users size={14} />
                 <span>Cupo: {activity.quota || 'Ilimitado'}</span>
@@ -362,6 +337,30 @@ const Activities = () => {
               </span>
             </div>
           </div>
+
+          <div className="card-actions flex gap-2">
+              <button 
+                onClick={() => handleViewEnrollments(activity)}
+                className="flex-1 btn btn-outline h-[44px] justify-center p-0"
+                title="Ver Inscriptos"
+              >
+                <Users size={20} />
+              </button>
+              <button 
+                onClick={() => handleOpenModal(activity)}
+                className="flex-1 btn btn-outline h-[44px] justify-center p-0"
+                title="Editar"
+              >
+                <Edit size={20} />
+              </button>
+              <button 
+                onClick={() => handleDelete(activity.id)}
+                className="flex-1 btn btn-destructive h-[44px] justify-center p-0"
+                title="Eliminar"
+              >
+                <Trash2 size={20} />
+              </button>
+          </div>
         </div>
           ))
         )}
@@ -374,19 +373,19 @@ const Activities = () => {
             <label className="label">Título</label>
             <input 
               type="text" 
-              className="input w-full" 
+              className="input w-full min-h-[48px]" 
               value={formData.title}
               onChange={e => setFormData({...formData, title: e.target.value})}
               required
             />
           </div>
           
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="label">Fecha</label>
               <input 
                 type="date" 
-                className="input w-full" 
+                className="input w-full min-h-[48px]" 
                 value={formData.date}
                 onChange={e => setFormData({...formData, date: e.target.value})}
                 required
@@ -396,7 +395,7 @@ const Activities = () => {
               <label className="label">Hora</label>
               <input 
                 type="time" 
-                className="input w-full" 
+                className="input w-full min-h-[48px]" 
                 value={formData.time}
                 onChange={e => setFormData({...formData, time: e.target.value})}
                 required
@@ -408,32 +407,36 @@ const Activities = () => {
             <label className="label">Ubicación</label>
             <input 
               type="text" 
-              className="input w-full" 
+              className="input w-full min-h-[48px]" 
               value={formData.location}
               onChange={e => setFormData({...formData, location: e.target.value})}
               required
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="label">Precio ($)</label>
-              <input 
-                type="number" 
-                className="input w-full" 
-                value={formData.price}
-                onChange={e => setFormData({...formData, price: e.target.value})}
-                placeholder="0.00"
-              />
+              <label className="label">Precio</label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]">$</span>
+                <input 
+                  type="number" 
+                  className="input w-full pl-8 min-h-[48px]" 
+                  value={formData.price}
+                  onChange={e => setFormData({...formData, price: e.target.value})}
+                  min="0"
+                />
+              </div>
             </div>
             <div>
               <label className="label">Cupo Máximo</label>
               <input 
                 type="number" 
-                className="input w-full" 
+                className="input w-full min-h-[48px]" 
                 value={formData.quota}
                 onChange={e => setFormData({...formData, quota: e.target.value})}
-                placeholder="Sin límite"
+                min="0"
+                placeholder="Ilimitado"
               />
             </div>
           </div>
@@ -441,10 +444,11 @@ const Activities = () => {
           <div>
             <label className="label">Descripción</label>
             <textarea 
-              className="input w-full h-24 resize-none" 
+              className="input w-full min-h-[100px] py-3" 
               value={formData.description}
               onChange={e => setFormData({...formData, description: e.target.value})}
-            />
+              rows="4"
+            ></textarea>
           </div>
 
           <div>

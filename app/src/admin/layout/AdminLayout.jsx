@@ -30,11 +30,11 @@ const AdminLayout = () => {
 
       <main className="admin-main">
         <div className="mobile-header">
-            <div className="flex items-center gap-3">
-                <img src="/logo-italia90.png" alt="Logo" className="h-8 w-auto" />
-                <span style={{ fontWeight: 'bold', fontSize: '1.125rem' }}>Admin Panel</span>
+            <div className="mobile-header-brand">
+                <img src="/logo-italia90.png" alt="Logo" className="admin-logo" />
+                <span className="admin-brand-text">Admin Panel</span>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="mobile-header-actions">
                 <button 
                     onClick={toggleTheme}
                     className="btn-icon"

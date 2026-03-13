@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Users, CreditCard, Calendar, Activity, TrendingUp, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
 const Dashboard = () => {
+  const navigate = useNavigate();
   const [stats, setStats] = useState({
     totalMembers: 0,
     activeMembers: 0,
@@ -129,7 +131,7 @@ const Dashboard = () => {
 
   if (loading) {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 animate-pulse">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8 animate-pulse">
         {[1, 2, 3, 4].map((i) => (
           <div key={i} className="card h-32" />
         ))}
@@ -138,25 +140,25 @@ const Dashboard = () => {
   }
 
   return (
-    <div className="space-y-8 animate-fade-in">
+    <div className="dashboard-container animate-fade-in">
       <div className="admin-header">
         <div>
           <h1 className="admin-title">Dashboard</h1>
-          <p className="text-[var(--text-muted)] mt-1">Bienvenido al panel de administración de Italia 90</p>
+          <p className="admin-subtitle mt-1">Bienvenido al panel de administración de Italia 90</p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         {statCards.map((stat, index) => (
           <div 
             key={index} 
-            className="card flex flex-col justify-between hover-card animate-scale-in"
+            className="card dashboard-stat-card hover-card animate-scale-in"
             style={{ animationDelay: `${index * 100}ms` }}
           >
-            <div className="flex items-start justify-between">
+            <div className="stat-card-header">
               <div>
-                <p className="text-sm font-medium text-[var(--text-muted)]">{stat.label}</p>
-                <h3 className="text-2xl font-bold mt-2 text-[var(--text)]">{stat.value}</h3>
+                <p className="stat-label">{stat.label}</p>
+                <h3 className="stat-value">{stat.value}</h3>
               </div>
               <div className={`stat-icon-wrapper stat-${stat.variant}`}>
                 <stat.icon size={24} />
@@ -171,24 +173,30 @@ const Dashboard = () => {
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="card animate-slide-up" style={{ animationDelay: '300ms' }}>
           <div className="card-header">
             <h2 className="card-title">Acciones Rápidas</h2>
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <button className="btn btn-primary w-full justify-center py-4 hover:shadow-lg transition-all">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-6">
+            <button 
+              className="btn btn-primary action-btn flex items-center justify-center gap-2 min-h-[44px]"
+              onClick={() => navigate('/admin/members')}
+            >
               <Users size={20} />
               Nuevo Socio
             </button>
-            <button className="btn btn-secondary w-full justify-center py-4 hover:shadow-lg transition-all">
+            <button 
+              className="btn btn-secondary action-btn flex items-center justify-center gap-2 min-h-[44px]"
+              onClick={() => navigate('/admin/payments')}
+            >
               <CreditCard size={20} />
               Registrar Pago
             </button>
             <button 
                 onClick={handleCheckExpirations} 
                 disabled={checking}
-                className="btn btn-accent w-full justify-center py-4 col-span-2 hover:shadow-lg transition-all text-white"
+                className="btn btn-accent action-btn-full col-span-1 sm:col-span-2 flex items-center justify-center gap-2 min-h-[44px]"
             >
                 {checking ? <Activity className="animate-spin" size={20} /> : <AlertCircle size={20} />}
                 {checking ? 'Verificando...' : 'Verificar Vencimientos'}
@@ -200,32 +208,32 @@ const Dashboard = () => {
           <div className="card-header">
             <h2 className="card-title">Actividad Reciente</h2>
           </div>
-          <div className="space-y-4">
-            <div className="flex items-center gap-4 p-3 rounded-lg hover:bg-[var(--background)] transition-colors cursor-pointer group">
-              <div className="stat-icon-wrapper stat-blue group-hover:scale-110 transition-transform">
+          <div className="activity-list">
+            <div className="activity-item group">
+              <div className="stat-icon-wrapper stat-blue group-hover-scale">
                 <Users size={20} />
               </div>
               <div>
-                <p className="font-medium text-[var(--text)]">Nuevo socio registrado</p>
-                <p className="text-sm text-[var(--text-muted)]">Hace 2 horas</p>
+                <p className="activity-text">Nuevo socio registrado</p>
+                <p className="activity-time">Hace 2 horas</p>
               </div>
             </div>
-            <div className="flex items-center gap-4 p-3 rounded-lg hover:bg-[var(--background)] transition-colors">
+            <div className="activity-item group">
               <div className="stat-icon-wrapper stat-green">
                 <CreditCard size={20} />
               </div>
               <div>
-                <p className="font-medium text-[var(--text)]">Pago de cuota recibido</p>
-                <p className="text-sm text-[var(--text-muted)]">Hace 5 horas</p>
+                <p className="activity-text">Pago de cuota recibido</p>
+                <p className="activity-time">Hace 5 horas</p>
               </div>
             </div>
-            <div className="flex items-center gap-4 p-3 rounded-lg hover:bg-[var(--background)] transition-colors">
+            <div className="activity-item group">
                 <div className="stat-icon-wrapper stat-red">
                     <Activity size={20} />
                 </div>
                 <div>
-                    <p className="font-medium text-[var(--text)]">Actividad creada</p>
-                    <p className="text-sm text-[var(--text-muted)]">Ayer</p>
+                    <p className="activity-text">Actividad creada</p>
+                    <p className="activity-time">Ayer</p>
                 </div>
             </div>
           </div>

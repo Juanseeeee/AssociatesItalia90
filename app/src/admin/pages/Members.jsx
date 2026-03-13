@@ -272,17 +272,17 @@ const Members = () => {
 
   return (
     <div className="admin-container animate-fade-in">
-      <div className="admin-header">
+      <div className="admin-header flex-col md:flex-row gap-4 md:items-center items-start">
         <div>
           <h1 className="admin-title">Gestión de Socios</h1>
           <p className="text-[var(--text-muted)] mt-1">Administra la base de datos de miembros del club</p>
         </div>
-        <div className="flex gap-2">
-          <button className="btn btn-outline" onClick={handleExportCSV}>
+        <div className="flex gap-2 w-full md:w-auto">
+          <button className="btn btn-outline flex-1 md:flex-none justify-center min-h-[44px]" onClick={handleExportCSV}>
             <Download size={18} />
             Exportar
           </button>
-          <button className="btn btn-primary" onClick={() => handleOpenModal()}>
+          <button className="btn btn-primary flex-1 md:flex-none justify-center min-h-[44px]" onClick={() => handleOpenModal()}>
             <Plus size={18} />
             Nuevo Socio
           </button>
@@ -291,20 +291,22 @@ const Members = () => {
 
       <div className="card">
         <div className="flex flex-col md:flex-row gap-4 items-center justify-between mb-6">
-          <div className="search-wrapper">
+          <div className="search-wrapper w-full md:w-auto">
             <Search className="search-icon" size={18} />
             <input 
               type="text" 
-              className="input" 
+              className="input w-full min-h-[48px]" 
               placeholder="Buscar por nombre, email o teléfono..." 
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
             />
           </div>
-          <div className="flex items-center gap-2 w-full md:w-auto">
-            <Filter size={18} className="text-[var(--text-muted)]" />
+          <div className="flex flex-col md:flex-row items-center gap-2 w-full md:w-auto">
+            <div className="hidden md:block">
+              <Filter size={18} className="text-[var(--text-muted)]" />
+            </div>
             <select 
-              className="input w-full md:w-48"
+              className="input w-full md:w-48 min-h-[48px]"
               value={status}
               onChange={(e) => setStatus(e.target.value)}
             >
@@ -320,11 +322,11 @@ const Members = () => {
           <table className="table">
             <thead>
               <tr>
-                <th>ID</th>
+                <th className="hidden lg:table-cell">ID</th>
                 <th>Socio</th>
                 <th>Estado</th>
-                <th>Contacto</th>
-                <th>Plan</th>
+                <th className="hidden sm:table-cell">Contacto</th>
+                <th className="hidden md:table-cell">Plan</th>
                 <th className="text-right">Acciones</th>
               </tr>
             </thead>
@@ -350,15 +352,19 @@ const Members = () => {
                     className="group animate-slide-up"
                     style={{ animationDelay: `${index * 30}ms` }}
                   >
-                    <td className="font-mono text-xs text-[var(--text-muted)]">#{member.id}</td>
+                    <td className="font-mono text-xs text-[var(--text-muted)] hidden lg:table-cell">#{member.id}</td>
                     <td>
                       <div className="flex flex-col">
                         <span className="font-medium text-[var(--text)]">{member.name}</span>
                         <span className="text-xs text-[var(--text-muted)]">{member.dni}</span>
+                        {/* Mobile only contact info */}
+                        <div className="sm:hidden mt-1 text-xs text-[var(--text-muted)] truncate max-w-[120px]">
+                          {member.email}
+                        </div>
                       </div>
                     </td>
                     <td>{getStatusBadge(member.status)}</td>
-                    <td>
+                    <td className="hidden sm:table-cell">
                       <div className="flex flex-col gap-1">
                         <div className="flex items-center gap-1 text-sm text-[var(--text-muted)]">
                           <Mail size={12} /> {member.email}
@@ -370,7 +376,7 @@ const Members = () => {
                         )}
                       </div>
                     </td>
-                    <td>
+                    <td className="hidden md:table-cell">
                       <span className="text-sm font-medium capitalize text-[var(--text)]">
                         {member.memberType || member.plan || 'Standard'}
                       </span>
@@ -415,21 +421,21 @@ const Members = () => {
             </span>
             <div className="flex gap-2">
               <button 
-                className="btn btn-outline py-1 px-3 text-sm disabled:opacity-50"
+                className="btn btn-outline w-[44px] h-[44px] p-0 justify-center disabled:opacity-50"
                 disabled={page === 1}
                 onClick={() => setPage(p => Math.max(1, p - 1))}
               >
-                <ChevronLeft size={16} />
+                <ChevronLeft size={20} />
               </button>
-              <span className="flex items-center px-2 text-sm font-medium">
+              <span className="flex items-center px-4 text-sm font-medium">
                 Página {page} de {totalPages || 1}
               </span>
               <button 
-                className="btn btn-outline py-1 px-3 text-sm disabled:opacity-50"
+                className="btn btn-outline w-[44px] h-[44px] p-0 justify-center disabled:opacity-50"
                 disabled={page >= totalPages}
                 onClick={() => setPage(p => Math.min(totalPages, p + 1))}
               >
-                <ChevronRight size={16} />
+                <ChevronRight size={20} />
               </button>
             </div>
           </div>
@@ -449,7 +455,7 @@ const Members = () => {
             />
           </div>
           
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="label">Email</label>
               <input 
@@ -471,7 +477,7 @@ const Members = () => {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="label">DNI</label>
               <input 

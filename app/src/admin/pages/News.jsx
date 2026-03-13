@@ -174,23 +174,23 @@ const News = () => {
 
   return (
     <div className="admin-container animate-fade-in">
-      <div className="admin-header">
+      <div className="admin-header flex-col md:flex-row gap-4 md:items-center items-start">
         <div>
           <h1 className="admin-title">Noticias</h1>
           <p className="text-[var(--text-muted)] mt-1">Gestiona las novedades y comunicados del club</p>
         </div>
-        <button className="btn btn-primary shadow-lg hover:shadow-xl transition-all duration-300" onClick={() => handleOpenModal()}>
+        <button className="btn btn-primary shadow-lg hover:shadow-xl transition-all duration-300 w-full md:w-auto justify-center" onClick={() => handleOpenModal()}>
           <Plus size={18} />
           Nueva Noticia
         </button>
       </div>
 
       <div className="card">
-        <div className="search-wrapper">
+        <div className="search-wrapper w-full">
           <Search className="search-icon" size={18} />
           <input 
             type="text" 
-            className="input" 
+            className="input w-full" 
             placeholder="Buscar noticia..." 
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
@@ -217,22 +217,6 @@ const News = () => {
                   className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                   onError={(e) => { e.target.src = 'https://placehold.co/600x400?text=Noticia'; }}
                 />
-                <div className="card-overlay">
-                   <button 
-                    onClick={() => handleOpenModal(item)}
-                    className="btn-overlay text-[var(--primary)]"
-                    title="Editar"
-                  >
-                    <Edit size={20} />
-                  </button>
-                  <button 
-                    onClick={() => handleDelete(item.id)}
-                    className="btn-overlay text-[var(--destructive)]"
-                    title="Eliminar"
-                  >
-                    <Trash2 size={20} />
-                  </button>
-                </div>
                 <div className="absolute top-3 right-3">
                   <span className="badge badge-neutral shadow-sm backdrop-blur-md border border-[var(--border)]">
                     {new Date(item.created_at || Date.now()).toLocaleDateString()}
@@ -248,10 +232,27 @@ const News = () => {
                   {item.content}
                 </p>
                 
-                <div className="card-footer text-xs">
-                   <Eye size={14} />
-                   <span>Visto por socios</span>
+                <div className="card-footer text-xs border-none p-0 pt-2 mt-0">
+                   <div className="flex items-center gap-1 text-[var(--text-muted)]">
+                     <Eye size={14} />
+                     <span>Visto por socios</span>
+                   </div>
                 </div>
+              </div>
+
+              <div className="card-actions flex gap-2 mt-auto">
+                <button 
+                  onClick={() => handleOpenModal(item)}
+                  className="flex-1 btn btn-outline text-sm min-h-[44px] flex items-center justify-center shadow-sm"
+                >
+                  <Edit size={18} className="mr-1" /> Editar
+                </button>
+                <button 
+                  onClick={() => handleDelete(item.id)}
+                  className="flex-1 btn btn-destructive text-sm min-h-[44px] flex items-center justify-center shadow-sm"
+                >
+                  <Trash2 size={18} className="mr-1" /> Eliminar
+                </button>
               </div>
             </div>
           ))}
