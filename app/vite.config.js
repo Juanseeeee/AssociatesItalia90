@@ -1,9 +1,9 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
-export default defineConfig({
+export default defineConfig(({ command }) => ({
   plugins: [react()],
-  base: '/AssociatesItalia90/',
+  base: command === 'build' ? '/AssociatesItalia90/' : '/',
   resolve: {
     alias: {
       'react-native': 'react-native-web'
@@ -23,4 +23,4 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: './src/setupTests.js',
   }
-});
+}));
