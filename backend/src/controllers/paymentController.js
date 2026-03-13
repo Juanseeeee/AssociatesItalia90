@@ -202,7 +202,7 @@ export const getPayments = async (req, res) => {
         const { data, error } = await supabase
             .from('payments')
             .select('*')
-            .order('created_at', { ascending: false });
+            .order('ts', { ascending: false });
         
         if (error) throw error;
         res.json(data || []);
@@ -221,7 +221,7 @@ export const getPaymentsByEmail = async (req, res) => {
             .from('payments')
             .select('*')
             .eq('email', email)
-            .order('created_at', { ascending: false });
+            .order('ts', { ascending: false });
         
         if (error) throw error;
         res.json(data || []);
