@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "predeploy": "npm run build",
+    "predeploy": "npm run build && node fix-spa.js",
     "deploy": "gh-pages -d dist",
     "preview": "vite preview --port 5173",
     "test": "vitest"

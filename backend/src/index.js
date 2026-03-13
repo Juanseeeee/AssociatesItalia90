@@ -274,6 +274,167 @@ app.delete('/api/activities/:id', requireAdmin, async (req, res) => {
     res.json({ success: true });
 });
 
+// --- News Endpoints ---
+
+app.get('/api/news', async (req, res) => {
+  const { data, error } = await supabase.from('news')
+    .select('*')
+    .order('published_at', { ascending: false })
+    .limit(50);
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data || []);
+});
+
+app.post('/api/news', requireAdmin, async (req, res) => {
+  const { title, excerpt, image } = req.body;
+  if (!title) return res.status(400).json({ error: 'Title required' });
+  
+  const newsItem = {
+    id: nanoid(),
+    title,
+    excerpt: excerpt || '',
+    image: image || '',
+    published_at: new Date().toISOString()
+  };
+
+  const { data, error } = await supabase.from('news').insert([newsItem]).select().single();
+  if (error) return res.status(500).json({ error: error.message });
+  
+  await logAudit(req, 'CREATE', 'news', data.id, { title });
+  res.status(201).json(data);
+});
+
+app.put('/api/news/:id', requireAdmin, async (req, res) => {
+  const { id } = req.params;
+  const { title, excerpt, image } = req.body;
+  
+  const { data, error } = await supabase.from('news')
+    .update({ title, excerpt, image })
+    .eq('id', id)
+    .select()
+    .single();
+    
+  if (error) return res.status(500).json({ error: error.message });
+  await logAudit(req, 'UPDATE', 'news', id, { title });
+  res.json(data);
+});
+
+app.delete('/api/news/:id', requireAdmin, async (req, res) => {
+  const { id } = req.params;
+  const { error } = await supabase.from('news').delete().eq('id', id);
+  if (error) return res.status(500).json({ error: error.message });
+  await logAudit(req, 'DELETE', 'news', id, {});
+  res.json({ success: true });
+});
+
+// --- Fixtures Endpoints ---
+
+app.get('/api/fixtures', async (req, res) => {
+  const { data, error } = await supabase.from('fixtures')
+    .select('*')
+    .order('date', { ascending: true }); // Próximos partidos primero? O pasados? Usually future games first or distinct lists. Let's do ascending.
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data || []);
+});
+
+app.post('/api/fixtures', requireAdmin, async (req, res) => {
+  const { home_team, away_team, date, location } = req.body;
+  if (!home_team || !away_team || !date) return res.status(400).json({ error: 'Teams and date required' });
+
+  const fixture = {
+    id: nanoid(),
+    home_team,
+    away_team,
+    date,
+    location: location || '',
+    status: 'scheduled',
+    created_at: new Date().toISOString()
+  };
+
+  const { data, error } = await supabase.from('fixtures').insert([fixture]).select().single();
+  if (error) return res.status(500).json({ error: error.message });
+  
+  await logAudit(req, 'CREATE', 'fixture', data.id, { home_team, away_team });
+  res.status(201).json(data);
+});
+
+app.put('/api/fixtures/:id', requireAdmin, async (req, res) => {
+  const { id } = req.params;
+  const { home_team, away_team, date, location, status, home_score, away_score } = req.body;
+
+  const { data, error } = await supabase.from('fixtures')
+    .update({ home_team, away_team, date, location, status, home_score, away_score })
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) return res.status(500).json({ error: error.message });
+  await logAudit(req, 'UPDATE', 'fixture', id, { home_team, away_team });
+  res.json(data);
+});
+
+app.delete('/api/fixtures/:id', requireAdmin, async (req, res) => {
+  const { id } = req.params;
+  const { error } = await supabase.from('fixtures').delete().eq('id', id);
+  if (error) return res.status(500).json({ error: error.message });
+  await logAudit(req, 'DELETE', 'fixture', id, {});
+  res.json({ success: true });
+});
+
+// --- Services Endpoints ---
+
+app.get('/api/services', async (req, res) => {
+  const { data, error } = await supabase.from('services')
+    .select('*')
+    .eq('active', true)
+    .order('created_at', { ascending: false });
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data || []);
+});
+
+app.post('/api/services', requireAdmin, async (req, res) => {
+  const { title, description, image } = req.body;
+  if (!title) return res.status(400).json({ error: 'Title required' });
+
+  const service = {
+    id: nanoid(),
+    title,
+    description: description || '',
+    image: image || '',
+    active: true,
+    created_at: new Date().toISOString()
+  };
+
+  const { data, error } = await supabase.from('services').insert([service]).select().single();
+  if (error) return res.status(500).json({ error: error.message });
+  
+  await logAudit(req, 'CREATE', 'service', data.id, { title });
+  res.status(201).json(data);
+});
+
+app.put('/api/services/:id', requireAdmin, async (req, res) => {
+  const { id } = req.params;
+  const { title, description, image, active } = req.body;
+
+  const { data, error } = await supabase.from('services')
+    .update({ title, description, image, active })
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) return res.status(500).json({ error: error.message });
+  await logAudit(req, 'UPDATE', 'service', id, { title });
+  res.json(data);
+});
+
+app.delete('/api/services/:id', requireAdmin, async (req, res) => {
+  const { id } = req.params;
+  const { error } = await supabase.from('services').delete().eq('id', id);
+  if (error) return res.status(500).json({ error: error.message });
+  await logAudit(req, 'DELETE', 'service', id, {});
+  res.json({ success: true });
+});
+
 // Start Server
 const PORT = process.env.PORT || 3003;
 app.listen(PORT, () => {
