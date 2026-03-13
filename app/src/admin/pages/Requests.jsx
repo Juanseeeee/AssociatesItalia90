@@ -92,8 +92,8 @@ const Requests = () => {
         </div>
       </div>
       <div className="border-t border-[var(--border)] p-3 bg-[var(--background)] flex gap-3">
-        <div className="h-10 flex-1 bg-[var(--border)] opacity-50 rounded"></div>
-        <div className="h-10 flex-1 bg-[var(--border)] opacity-50 rounded"></div>
+        <div className="h-[44px] flex-1 bg-[var(--border)] opacity-50 rounded"></div>
+        <div className="h-[44px] flex-1 bg-[var(--border)] opacity-50 rounded"></div>
       </div>
     </div>
   );
@@ -160,7 +160,7 @@ const Requests = () => {
                 <div className="flex gap-2 mt-auto">
                   <button 
                     onClick={() => openDetails(req)}
-                    className="btn btn-outline flex-1 text-sm"
+                    className="btn btn-outline flex-1 text-sm h-[44px] flex items-center justify-center"
                   >
                     Ver Detalles
                   </button>
@@ -170,13 +170,13 @@ const Requests = () => {
               <div className="card-actions">
                 <button 
                   onClick={() => handleAction(req.id, 'approve')}
-                  className="flex-1 btn btn-accent text-sm py-2 shadow-sm"
+                  className="flex-1 btn btn-accent text-sm h-[44px] flex items-center justify-center shadow-sm"
                 >
                   <Check size={16} className="mr-1" /> Aprobar
                 </button>
                 <button 
                   onClick={() => handleAction(req.id, 'reject')}
-                  className="flex-1 btn btn-destructive text-sm py-2 shadow-sm"
+                  className="flex-1 btn btn-destructive text-sm h-[44px] flex items-center justify-center shadow-sm"
                 >
                   <X size={16} className="mr-1" /> Rechazar
                 </button>
@@ -193,7 +193,7 @@ const Requests = () => {
       >
         {selectedRequest && (
           <div className="space-y-6">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="label text-xs font-bold text-[var(--text-muted)] uppercase">Nombre Completo</label>
                 <p className="text-[var(--text)] font-medium">{selectedRequest.name} {selectedRequest.lastname}</p>
@@ -224,7 +224,7 @@ const Requests = () => {
 
             <div>
               <label className="label text-xs font-bold text-[var(--text-muted)] uppercase mb-2 block">Documentación Adjunta</label>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {selectedRequest.dni_front && (
                   <div className="space-y-1">
                     <span className="text-xs text-[var(--text-muted)]">DNI Frente</span>
@@ -257,13 +257,13 @@ const Requests = () => {
             <div className="modal-footer">
               <button 
                 onClick={() => handleAction(selectedRequest.id, 'approve')}
-                className="flex-1 btn btn-accent"
+                className="flex-1 btn btn-accent h-[44px] flex items-center justify-center"
               >
                 Aprobar Solicitud
               </button>
               <button 
                 onClick={() => handleAction(selectedRequest.id, 'reject')}
-                className="flex-1 btn btn-destructive"
+                className="flex-1 btn btn-destructive h-[44px] flex items-center justify-center"
               >
                 Rechazar
               </button>

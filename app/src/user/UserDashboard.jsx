@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Platform, Dimensions, Animated } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Platform, useWindowDimensions, Animated } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import PaymentForm from '../PaymentForm';
@@ -20,7 +20,7 @@ const UserDashboard = () => {
 
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3003/api';
   const isWeb = Platform.OS === 'web';
-  const { width } = Dimensions.get('window');
+  const { width } = useWindowDimensions();
   const isMobile = width < 768;
 
   useEffect(() => {
@@ -398,6 +398,7 @@ const styles = StyleSheet.create({
     elevation: 2,
     borderWidth: 1,
     borderColor: '#f1f5f9',
+    minHeight: 44,
   },
   logoutIcon: {
     fontSize: 16,
@@ -426,7 +427,7 @@ const styles = StyleSheet.create({
   columnSide: {
     flex: 0.8,
     gap: 24,
-    minWidth: 300,
+    minWidth: '100%',
     width: '100%',
   },
 
@@ -497,6 +498,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 4,
     elevation: 2,
+    minHeight: 44,
   },
   downloadText: {
     fontSize: 13,
@@ -708,6 +710,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 8,
+    minHeight: 44,
+    justifyContent: 'center',
   },
   addBtnText: {
     color: '#2563eb',
@@ -769,12 +773,12 @@ const styles = StyleSheet.create({
     color: '#64748b',
   },
   iconBtn: {
-    width: 32,
-    height: 32,
+    width: 44,
+    height: 44,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#fff',
-    borderRadius: 16,
+    borderRadius: 22,
     borderWidth: 1,
     borderColor: '#e2e8f0',
   },

@@ -196,19 +196,21 @@ const styles = StyleSheet.create({
     borderColor: '#d1d5db',
     borderRadius: 8,
     padding: 10,
-    fontSize: 14,
+    fontSize: 16, // Better for mobile readability
     color: '#1f2937',
-    width: '100%',
-    height: 40, // Fixed height for compactness
+    minHeight: 48, // Touch target size
   },
   button: {
-    backgroundColor: '#f42b29', // Brand Red
-    width: '100%',
-    padding: 12,
+    backgroundColor: '#070571', // Brand Blue
+    paddingVertical: 12,
+    paddingHorizontal: 24,
     borderRadius: 8,
+    width: '100%',
     alignItems: 'center',
     marginTop: 8,
-    marginBottom: 16,
+    minHeight: 48, // Touch target size
+    justifyContent: 'center',
+    shadowColor: '#070571',
   },
   buttonText: {
     color: '#fff',

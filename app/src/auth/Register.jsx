@@ -136,7 +136,7 @@ const Register = () => {
       const [day, month, year] = formData.birthDate.split('/').map(Number);
       const birth = new Date(year, month - 1, day);
       const now = new Date();
-      const age = now.getFullYear() - birth.getFullYear();
+      let age = now.getFullYear() - birth.getFullYear();
       const m = now.getMonth() - birth.getMonth();
       if (m < 0 || (m === 0 && now.getDate() < birth.getDate())) {
         age--;
@@ -851,13 +851,13 @@ const styles = StyleSheet.create({
   label: { fontSize: 12, fontWeight: '600', color: '#4b5563', marginBottom: 4 },
   input: {
     borderWidth: 1, borderColor: '#d1d5db', borderRadius: 6,
-    paddingHorizontal: 10, height: 38, fontSize: 14, backgroundColor: '#f9fafb'
+    paddingHorizontal: 10, minHeight: 48, fontSize: 16, backgroundColor: '#f9fafb'
   },
-  inputGroup: { marginBottom: 10 },
+  inputGroup: { marginBottom: 15 },
   
-  errorText: { color: '#dc2626', fontSize: 10, marginTop: 2 },
-  errorTextCenter: { color: '#dc2626', fontSize: 10, marginTop: 2, textAlign: 'center' },
-  globalError: { color: '#dc2626', textAlign: 'center', marginBottom: 10, backgroundColor: '#fee2e2', padding: 5, borderRadius: 4 },
+  errorText: { color: '#dc2626', fontSize: 12, marginTop: 4 },
+  errorTextCenter: { color: '#dc2626', fontSize: 12, marginTop: 4, textAlign: 'center' },
+  globalError: { color: '#dc2626', textAlign: 'center', marginBottom: 10, backgroundColor: '#fee2e2', padding: 8, borderRadius: 4 },
   
   // Custom Select
   selectContainer: {
@@ -865,7 +865,7 @@ const styles = StyleSheet.create({
     borderColor: '#cbd5e1',
     borderRadius: 8,
     backgroundColor: '#fff',
-    height: 48,
+    minHeight: 48,
     justifyContent: 'center',
     position: 'relative',
     overflow: 'hidden',
@@ -922,24 +922,24 @@ const styles = StyleSheet.create({
   paymentMethods: { flexDirection: 'row', gap: 10, marginBottom: 10 },
   methodBtn: { 
     flex: 1, padding: 10, borderWidth: 1, borderColor: '#d1d5db', borderRadius: 6, 
-    alignItems: 'center', backgroundColor: '#fff' 
+    alignItems: 'center', backgroundColor: '#fff', minHeight: 48, justifyContent: 'center'
   },
   methodBtnActive: { borderColor: '#070571', backgroundColor: '#e0e7ff' },
   methodText: { fontSize: 12, fontWeight: '600', color: '#6b7280' },
   methodTextActive: { color: '#070571' },
 
-  btnPrimary: { flex: 1, backgroundColor: '#070571', padding: 12, borderRadius: 8, alignItems: 'center' },
-  btnTextPrimary: { color: '#fff', fontWeight: 'bold', fontSize: 14 },
+  btnPrimary: { flex: 1, backgroundColor: '#070571', padding: 12, borderRadius: 8, alignItems: 'center', justifyContent: 'center', minHeight: 48 },
+  btnTextPrimary: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
   
   // Legacy select support for Step 2
-  select: { borderWidth: 1, borderColor: '#d1d5db', borderRadius: 6, height: 38, paddingHorizontal: 10, justifyContent: 'center', backgroundColor: '#e5e7eb' },
+  select: { borderWidth: 1, borderColor: '#d1d5db', borderRadius: 6, minHeight: 48, paddingHorizontal: 10, justifyContent: 'center', backgroundColor: '#e5e7eb' },
   selectText: { color: '#6b7280', fontSize: 14 },
 
   // Footer
   footer: { flexDirection: 'row', justifyContent: 'space-between', gap: 10, marginTop: 20, zIndex: 1 },
-  btnSuccess: { flex: 1, backgroundColor: '#059669', padding: 12, borderRadius: 8, alignItems: 'center' },
-  btnSecondary: { backgroundColor: '#e5e7eb', padding: 12, borderRadius: 8, minWidth: 80, alignItems: 'center' },
-  btnGhost: { padding: 12, minWidth: 80, alignItems: 'center' },
+  btnSuccess: { flex: 1, backgroundColor: '#059669', padding: 12, borderRadius: 8, alignItems: 'center', justifyContent: 'center', minHeight: 48 },
+  btnSecondary: { backgroundColor: '#e5e7eb', padding: 12, borderRadius: 8, minWidth: 80, alignItems: 'center', justifyContent: 'center', minHeight: 48 },
+  btnGhost: { padding: 12, minWidth: 80, alignItems: 'center', justifyContent: 'center', minHeight: 48 },
   
   btnTextSecondary: { color: '#374151', fontSize: 14, fontWeight: '600' },
   btnTextGhost: { color: '#6b7280', fontSize: 14 },

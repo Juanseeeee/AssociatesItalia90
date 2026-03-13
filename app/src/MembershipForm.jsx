@@ -8,6 +8,8 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3003/api';
 
 const MembershipForm = () => {
   const navigate = useNavigate();
+  const { width } = useWindowDimensions();
+  const isMobile = width < 768;
   const { user } = useAuth();
   const [type, setType] = useState('adult'); // 'adult' | 'minor'
   const [formData, setFormData] = useState({
@@ -162,10 +164,10 @@ const MembershipForm = () => {
   };
 
   const renderInput = (label, name, placeholder, keyboardType = 'default', required = false) => (
-    <View style={styles.inputGroup}>
+    <View style={[styles.inputGroup, isMobile && {width: '100%'}]}>
       <Text style={styles.label}>{label} {required && '*'}</Text>
       <TextInput
-        style={styles.input}
+        style={[styles.input, { minHeight: 44 }]}
         placeholder={placeholder}
         value={formData[name]}
         onChangeText={(text) => handleInputChange(name, text)}
@@ -176,7 +178,7 @@ const MembershipForm = () => {
   );
 
   const renderFileInput = (label, name, accept, required = false) => (
-    <View style={styles.inputGroup}>
+    <View style={[styles.inputGroup, isMobile && {width: '100%'}]}>
       <Text style={styles.label}>{label} {required && '*'}</Text>
       {/* React Native Web supports HTML elements via 'createElement' or implicitly in JSX if configured, 
           but usually we use standard HTML inputs for files in web context */}
@@ -184,7 +186,7 @@ const MembershipForm = () => {
         type="file"
         accept={accept}
         onChange={(e) => handleFileChange(name, e)}
-        style={styles.fileInput}
+        style={{...styles.fileInput, minHeight: 44}}
       />
       {files[name] && <Text style={styles.fileSelected}>Archivo seleccionado: {files[name].name}</Text>}
     </View>
@@ -211,27 +213,27 @@ const MembershipForm = () => {
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Datos Personales {type === 'minor' && '(del Menor)'}</Text>
-        <View style={styles.row}>
-          <View style={styles.half}>{renderInput('Nombre', 'firstName', 'Juan', 'default', true)}</View>
-          <View style={styles.half}>{renderInput('Apellido', 'lastName', 'Pérez', 'default', true)}</View>
+        <View style={[styles.row, isMobile && {flexDirection: 'column', gap: 16}]}>
+          <View style={[styles.half, isMobile && {width: '100%', minWidth: 'auto'}]}>{renderInput('Nombre', 'firstName', 'Juan', 'default', true)}</View>
+          <View style={[styles.half, isMobile && {width: '100%', minWidth: 'auto'}]}>{renderInput('Apellido', 'lastName', 'Pérez', 'default', true)}</View>
         </View>
-        <View style={styles.row}>
-          <View style={styles.half}>{renderInput('DNI', 'dni', '12345678', 'numeric', true)}</View>
-          <View style={styles.half}>
+        <View style={[styles.row, isMobile && {flexDirection: 'column', gap: 16}]}>
+          <View style={[styles.half, isMobile && {width: '100%', minWidth: 'auto'}]}>{renderInput('DNI', 'dni', '12345678', 'numeric', true)}</View>
+          <View style={[styles.half, isMobile && {width: '100%', minWidth: 'auto'}]}>
              <View style={styles.inputGroup}>
                 <Text style={styles.label}>Fecha Nacimiento *</Text>
                 <input 
                   type="date" 
                   value={formData.birthDate} 
                   onChange={(e) => handleInputChange('birthDate', e.target.value)}
-                  style={styles.dateInput}
+                  style={{...styles.dateInput, minHeight: 44}}
                 />
              </View>
           </View>
         </View>
-        <View style={styles.row}>
-          <View style={styles.half}>{renderInput('Email', 'email', 'juan@email.com', 'email-address', true)}</View>
-          <View style={styles.half}>{renderInput('Teléfono', 'phone', '1122334455', 'phone-pad', true)}</View>
+        <View style={[styles.row, isMobile && {flexDirection: 'column', gap: 16}]}>
+          <View style={[styles.half, isMobile && {width: '100%', minWidth: 'auto'}]}>{renderInput('Email', 'email', 'juan@email.com', 'email-address', true)}</View>
+          <View style={[styles.half, isMobile && {width: '100%', minWidth: 'auto'}]}>{renderInput('Teléfono', 'phone', '1122334455', 'phone-pad', true)}</View>
         </View>
         {renderInput('Dirección', 'address', 'Calle Falsa 123', 'default', true)}
       </View>
@@ -239,13 +241,13 @@ const MembershipForm = () => {
       {type === 'minor' && (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Datos del Tutor / Responsable</Text>
-          <View style={styles.row}>
-            <View style={styles.half}>{renderInput('Nombre Tutor', 'guardianName', 'Nombre Completo', 'default', true)}</View>
-            <View style={styles.half}>{renderInput('DNI Tutor', 'guardianDni', 'DNI', 'numeric', true)}</View>
+          <View style={[styles.row, isMobile && {flexDirection: 'column', gap: 16}]}>
+            <View style={[styles.half, isMobile && {width: '100%', minWidth: 'auto'}]}>{renderInput('Nombre Tutor', 'guardianName', 'Nombre Completo', 'default', true)}</View>
+            <View style={[styles.half, isMobile && {width: '100%', minWidth: 'auto'}]}>{renderInput('DNI Tutor', 'guardianDni', 'DNI', 'numeric', true)}</View>
           </View>
-          <View style={styles.row}>
-            <View style={styles.half}>{renderInput('Email Tutor', 'guardianEmail', 'email@tutor.com', 'email-address')}</View>
-            <View style={styles.half}>{renderInput('Relación', 'guardianRelation', 'Padre/Madre/Tutor', 'default', true)}</View>
+          <View style={[styles.row, isMobile && {flexDirection: 'column', gap: 16}]}>
+            <View style={[styles.half, isMobile && {width: '100%', minWidth: 'auto'}]}>{renderInput('Email Tutor', 'guardianEmail', 'email@tutor.com', 'email-address')}</View>
+            <View style={[styles.half, isMobile && {width: '100%', minWidth: 'auto'}]}>{renderInput('Relación', 'guardianRelation', 'Padre/Madre/Tutor', 'default', true)}</View>
           </View>
         </View>
       )}
@@ -260,7 +262,7 @@ const MembershipForm = () => {
               type="date" 
               value={formData.medical_cert_date || ''} 
               onChange={(e) => handleInputChange('medical_cert_date', e.target.value)}
-              style={styles.dateInput}
+              style={{...styles.dateInput, minHeight: 44}}
             />
         </View>
         {renderFileInput('Certificado Médico (Apto Físico)', 'medical_cert', '.pdf,image/*', true)}
@@ -276,13 +278,13 @@ const MembershipForm = () => {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Recomendaciones (Socios Activos)</Text>
         <Text style={styles.hint}>Si estamos en periodo excepcional, deje estos campos vacíos.</Text>
-        <View style={styles.row}>
-            <View style={styles.half}>{renderInput('Nombre Socio 1', 'rec1Name', 'Nombre')}</View>
-            <View style={styles.half}>{renderInput('Nro Socio / DNI', 'rec1Id', 'Nro Socio')}</View>
+        <View style={[styles.row, isMobile && {flexDirection: 'column', gap: 16}]}>
+            <View style={[styles.half, isMobile && {width: '100%', minWidth: 'auto'}]}>{renderInput('Nombre Socio 1', 'rec1Name', 'Nombre')}</View>
+            <View style={[styles.half, isMobile && {width: '100%', minWidth: 'auto'}]}>{renderInput('Nro Socio / DNI', 'rec1Id', 'Nro Socio')}</View>
         </View>
-        <View style={styles.row}>
-            <View style={styles.half}>{renderInput('Nombre Socio 2', 'rec2Name', 'Nombre')}</View>
-            <View style={styles.half}>{renderInput('Nro Socio / DNI', 'rec2Id', 'Nro Socio')}</View>
+        <View style={[styles.row, isMobile && {flexDirection: 'column', gap: 16}]}>
+            <View style={[styles.half, isMobile && {width: '100%', minWidth: 'auto'}]}>{renderInput('Nombre Socio 2', 'rec2Name', 'Nombre')}</View>
+            <View style={[styles.half, isMobile && {width: '100%', minWidth: 'auto'}]}>{renderInput('Nro Socio / DNI', 'rec2Id', 'Nro Socio')}</View>
         </View>
       </View>
 

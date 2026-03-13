@@ -58,7 +58,7 @@ const Login = () => {
               <input 
                 type="email" 
                 required
-                className="input pl-10 w-full" 
+                className="input pl-10 w-full min-h-[48px]" 
                 placeholder="admin@italia90.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -73,7 +73,7 @@ const Login = () => {
               <input 
                 type="password" 
                 required
-                className="input pl-10 w-full" 
+                className="input pl-10 w-full min-h-[48px]" 
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -84,7 +84,7 @@ const Login = () => {
           <button 
             type="submit" 
             disabled={loading}
-            className="btn btn-primary w-full justify-center py-3 text-base"
+            className="btn btn-primary w-full justify-center py-3 text-base min-h-[48px]"
           >
             {loading ? 'Ingresando...' : 'Iniciar Sesión'}
           </button>

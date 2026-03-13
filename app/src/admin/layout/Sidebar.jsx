@@ -46,7 +46,6 @@ const Sidebar = ({ isOpen, onClose, theme, toggleTheme }) => {
             <img 
               src="/logo-italia90.png" 
               alt="Logo Italia 90" 
-              className="h-12 w-auto object-contain"
               onError={(e) => {
                 e.target.onerror = null; 
                 e.target.style.display = 'none';
@@ -54,7 +53,7 @@ const Sidebar = ({ isOpen, onClose, theme, toggleTheme }) => {
               }}
             />
             {/* Fallback if image fails or for better branding */}
-            <span className="mt-2 text-sm font-bold uppercase tracking-wider text-[var(--text-muted)]">
+            <span>
               Panel de Administración
             </span>
           </div>
@@ -68,12 +67,10 @@ const Sidebar = ({ isOpen, onClose, theme, toggleTheme }) => {
                   to={item.to}
                   end={item.end}
                   onClick={() => onClose && onClose()}
-                  className={({ isActive }) => `nav-link group ${isActive ? 'active' : ''}`}
+                  className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
                 >
-                  <item.icon size={20} className="group-hover:scale-110 transition-transform duration-200" />
+                  <item.icon size={20} className="nav-icon" />
                   <span>{item.label}</span>
-                  {/* Active Indicator */}
-                  <div className="absolute left-0 top-0 bottom-0 w-1 bg-[var(--primary)] opacity-0 transition-opacity duration-200 group-[.active]:opacity-100 rounded-r-full" />
                 </NavLink>
               </li>
             ))}
@@ -83,21 +80,21 @@ const Sidebar = ({ isOpen, onClose, theme, toggleTheme }) => {
         <div className="sidebar-footer">
           <button 
             onClick={toggleTheme}
-            className="nav-link w-full mb-2 cursor-pointer border-none bg-transparent hover:bg-[var(--background)] group"
+            className="nav-link w-full mb-2 cursor-pointer border-none bg-transparent"
             style={{ justifyContent: 'flex-start' }}
           >
-            <div className="relative w-5 h-5">
-              <Moon size={20} className={`absolute inset-0 transition-all duration-300 ${theme === 'dark' ? 'opacity-100 rotate-0' : 'opacity-0 rotate-90'}`} />
-              <Sun size={20} className={`absolute inset-0 transition-all duration-300 ${theme === 'light' ? 'opacity-100 rotate-0' : 'opacity-0 -rotate-90'}`} />
+            <div className="theme-icon-wrapper" style={{ position: 'relative', width: 20, height: 20 }}>
+              <Moon size={20} className={`theme-icon ${theme === 'dark' ? 'visible' : ''}`} style={{ position: 'absolute', inset: 0 }} />
+              <Sun size={20} className={`theme-icon ${theme === 'light' ? 'visible' : ''}`} style={{ position: 'absolute', inset: 0 }} />
             </div>
             <span>{theme === 'light' ? 'Modo Oscuro' : 'Modo Claro'}</span>
           </button>
 
           <button 
             onClick={handleLogout}
-            className="btn-logout group hover:border-[var(--destructive)]"
+            className="btn-logout"
           >
-            <LogOut size={20} className="group-hover:-translate-x-1 transition-transform duration-200" />
+            <LogOut size={20} />
             <span>Cerrar Sesión</span>
           </button>
         </div>
