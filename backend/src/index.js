@@ -223,7 +223,7 @@ app.get('/api/activities', async (req, res) => {
   res.json(data || []);
 });
 
-app.post('/api/activities', requireAdmin, async (req, res) => {
+app.post('/api/activities', requireAuth, requireAdmin, async (req, res) => {
   const { name, slots, cost, schedule, description, image } = req.body || {};
   if (!name) return res.status(400).json({ error: 'Name required' });
   
@@ -262,7 +262,7 @@ app.put('/api/activities/:id', requireAdmin, async (req, res) => {
   return res.json(data);
 });
 
-app.delete('/api/activities/:id', requireAdmin, async (req, res) => {
+app.delete('/api/activities/:id', requireAuth, requireAdmin, async (req, res) => {
     const { id } = req.params;
     const { error } = await supabase
         .from('activities')
@@ -304,7 +304,7 @@ app.post('/api/news', requireAdmin, async (req, res) => {
   res.status(201).json(data);
 });
 
-app.put('/api/news/:id', requireAdmin, async (req, res) => {
+app.put('/api/news/:id', requireAuth, requireAdmin, async (req, res) => {
   const { id } = req.params;
   const { title, excerpt, image } = req.body;
   
@@ -337,7 +337,7 @@ app.get('/api/fixtures', async (req, res) => {
   res.json(data || []);
 });
 
-app.post('/api/fixtures', requireAdmin, async (req, res) => {
+app.post('/api/fixtures', requireAuth, requireAdmin, async (req, res) => {
   const { home_team, away_team, date, location } = req.body;
   if (!home_team || !away_team || !date) return res.status(400).json({ error: 'Teams and date required' });
 
@@ -373,7 +373,7 @@ app.put('/api/fixtures/:id', requireAdmin, async (req, res) => {
   res.json(data);
 });
 
-app.delete('/api/fixtures/:id', requireAdmin, async (req, res) => {
+app.delete('/api/fixtures/:id', requireAuth, requireAdmin, async (req, res) => {
   const { id } = req.params;
   const { error } = await supabase.from('fixtures').delete().eq('id', id);
   if (error) return res.status(500).json({ error: error.message });
@@ -392,7 +392,7 @@ app.get('/api/services', async (req, res) => {
   res.json(data || []);
 });
 
-app.post('/api/services', requireAdmin, async (req, res) => {
+app.post('/api/services', requireAuth, requireAdmin, async (req, res) => {
   const { title, description, image } = req.body;
   if (!title) return res.status(400).json({ error: 'Title required' });
 
@@ -427,7 +427,7 @@ app.put('/api/services/:id', requireAdmin, async (req, res) => {
   res.json(data);
 });
 
-app.delete('/api/services/:id', requireAdmin, async (req, res) => {
+app.delete('/api/services/:id', requireAuth, requireAdmin, async (req, res) => {
   const { id } = req.params;
   const { error } = await supabase.from('services').delete().eq('id', id);
   if (error) return res.status(500).json({ error: error.message });

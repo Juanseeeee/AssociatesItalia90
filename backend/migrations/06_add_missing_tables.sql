@@ -21,13 +21,24 @@ create table if not exists public.services (
   created_at timestamptz default now()
 );
 
+-- Tabla de Noticias
+create table if not exists public.news (
+  id uuid primary key,
+  title text not null,
+  excerpt text default '',
+  image text default '',
+  published_at timestamptz default now()
+);
+
 -- Habilitar RLS
 alter table public.fixtures enable row level security;
 alter table public.services enable row level security;
+alter table public.news enable row level security;
 
 -- Políticas de lectura pública
 create policy fixtures_select_public on public.fixtures for select using (true);
 create policy services_select_public on public.services for select using (true);
+create policy news_select_public on public.news for select using (true);
 
 -- Políticas de escritura para admins
 create policy fixtures_write_admin on public.fixtures
@@ -36,6 +47,11 @@ create policy fixtures_write_admin on public.fixtures
   with check (exists (select 1 from public.admins a where a.user_id = auth.uid() and a.enabled = true));
 
 create policy services_write_admin on public.services
+  for all to authenticated
+  using (exists (select 1 from public.admins a where a.user_id = auth.uid() and a.enabled = true))
+  with check (exists (select 1 from public.admins a where a.user_id = auth.uid() and a.enabled = true));
+
+create policy news_write_admin on public.news
   for all to authenticated
   using (exists (select 1 from public.admins a where a.user_id = auth.uid() and a.enabled = true))
   with check (exists (select 1 from public.admins a where a.user_id = auth.uid() and a.enabled = true));
