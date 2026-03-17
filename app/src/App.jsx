@@ -881,9 +881,18 @@ function AppContent() {
   );
 
   const isAdminRoute = location.pathname.startsWith('/admin');
+  const scrollViewRef = useRef(null);
+
+  useEffect(() => {
+    if (scrollViewRef.current) {
+      scrollViewRef.current.scrollTo({ y: 0, animated: false });
+    }
+    // Also scroll window to top just in case the body is scrolling
+    window.scrollTo(0, 0);
+  }, [location.pathname]);
 
   return (
-    <ScrollView style={styles.page}>
+    <ScrollView style={styles.page} ref={scrollViewRef}>
       {!isAdminRoute && <PageHeader/>}
       <Routes>
         <Route path="/login" element={<Login />} />
