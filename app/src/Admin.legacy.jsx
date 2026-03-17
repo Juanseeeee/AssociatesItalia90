@@ -3,7 +3,7 @@ import { Routes, Route, useNavigate, useLocation, Outlet } from 'react-router-do
 import { View, Text, TouchableOpacity, TextInput, StyleSheet, ScrollView, Image } from 'react-native';
 import supabaseClient from './supabaseClient';
 
-const API = import.meta.env.VITE_API_URL || 'http://localhost:3003/api';
+import { API_URL as API } from './config/api';
 
 export default function AdminRoutes() {
   return (

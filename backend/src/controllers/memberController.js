@@ -27,7 +27,8 @@ export const getMemberCard = async (req, res) => {
     
     if (error || !member) return res.status(404).json({ error: 'Member not found' });
     
-    const qrData = `http://localhost:5173/verificar/${member.id}`;
+    const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
+    const qrData = `${clientUrl}/verificar/${member.id}`;
     
     // Handle inconsistencies in DB schema (name vs first_name/last_name)
     const fullName = member.name || `${member.first_name || ''} ${member.last_name || ''}`.trim() || 'Socio';

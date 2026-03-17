@@ -391,8 +391,9 @@ export const forgotPassword = async (req, res) => {
     if (!email) return res.status(400).json({ error: 'Email es requerido' });
 
     try {
+        const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
-            redirectTo: 'http://localhost:5173/reset-password', // Adjust for production
+            redirectTo: `${clientUrl}/reset-password`,
         });
 
         if (error) throw error;

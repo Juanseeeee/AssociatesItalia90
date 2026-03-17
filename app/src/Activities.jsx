@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, Image, StyleSheet, ScrollView, Modal, TextInput, ActivityIndicator } from 'react-native';
 import { useNavigate } from 'react-router-dom';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3003/api';
+import { API_URL } from './config/api';
 
 export default function Activities() {
   const navigate = useNavigate();

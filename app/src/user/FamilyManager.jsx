@@ -1,13 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator, useWindowDimensions, Platform } from 'react-native';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { API_URL } from '../config/api';
 
 const FamilyManager = () => {
   const navigate = useNavigate();
+  const { id } = useParams();
   const { width } = useWindowDimensions();
   const isMobile = width < 768;
   const [loading, setLoading] = useState(false);
+  const [fetching, setFetching] = useState(!!id);
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -23,7 +26,34 @@ const FamilyManager = () => {
     auth_parents: null
   });
 
-  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3004/api';
+  useEffect(() => {
+    if (id) {
+      const fetchMember = async () => {
+        try {
+          const token = localStorage.getItem('token');
+          const res = await fetch(`${API_URL}/user/family/${id}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          if (res.ok) {
+            const data = await res.json();
+            setFormData({
+              firstName: data.first_name || data.firstName || '',
+              lastName: data.last_name || data.lastName || '',
+              dni: data.dni || '',
+              birthDate: data.birth_date || data.birthDate || '',
+              relation: data.relation || 'child',
+              medicalInfo: data.medical_info || data.medicalInfo || ''
+            });
+          }
+        } catch (error) {
+          console.error('Error fetching family member:', error);
+        } finally {
+          setFetching(false);
+        }
+      };
+      fetchMember();
+    }
+  }, [id]);
 
   const handleInputChange = (name, value) => {
     setFormData(prev => ({ ...prev, [name]: value }));
@@ -50,18 +80,21 @@ const FamilyManager = () => {
       });
 
       const token = localStorage.getItem('token');
-      const res = await fetch(`${API_URL}/user/family`, {
-        method: 'POST',
+      const url = id ? `${API_URL}/user/family/${id}` : `${API_URL}/user/family`;
+      const method = id ? 'PUT' : 'POST';
+
+      const res = await fetch(url, {
+        method,
         headers: {
           'Authorization': `Bearer ${token}`
         },
         body: data
       });
 
-      if (!res.ok) throw new Error('Error al agregar familiar');
+      if (!res.ok) throw new Error(`Error al ${id ? 'actualizar' : 'agregar'} familiar`);
 
-      alert('Familiar agregado exitosamente');
-      navigate('/dashboard');
+      alert(`Familiar ${id ? 'actualizado' : 'agregado'} exitosamente`);
+      navigate('/dashboard?tab=family');
     } catch (error) {
       console.error(error);
       alert('Error al guardar datos');

@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, Image, StyleSheet, Platform, Dimensions } from 'react-native';
 import { QRCodeCanvas } from 'qrcode.react';
+import { API_URL } from '../config/api';
 
 const DigitalID = ({ member }) => {
   if (!member) return null;
@@ -14,6 +15,14 @@ const DigitalID = ({ member }) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' });
   };
+
+  const getPhotoUrl = (photo) => {
+    if (!photo) return null;
+    if (photo.startsWith('http')) return photo;
+    return `${API_URL.replace('/api', '')}${photo}`;
+  };
+
+  const photoUrl = getPhotoUrl(member.photo);
 
   return (
     <View style={styles.cardContainer}>
@@ -42,10 +51,15 @@ const DigitalID = ({ member }) => {
         {/* Left: Photo & Category */}
         <View style={styles.leftCol}>
           <View style={styles.photoContainer}>
-            {member.photo ? (
-              <Image source={{ uri: member.photo }} style={styles.photo} resizeMode="cover" />
+            {photoUrl ? (
+              <Image 
+                source={{ uri: photoUrl }} 
+                style={styles.photo} 
+                resizeMode="cover" 
+                accessibilityLabel={`Foto de perfil de ${member.name}`}
+              />
             ) : (
-              <Text style={{fontSize: 40}}>👤</Text>
+              <Text style={{fontSize: 40}} accessibilityLabel="Sin foto de perfil">👤</Text>
             )}
           </View>
           <View style={styles.categoryBadge}>
@@ -55,27 +69,27 @@ const DigitalID = ({ member }) => {
 
         {/* Right: Data Fields */}
         <View style={styles.rightCol}>
-          <View style={styles.nameContainer}>
+          <View style={styles.nameContainer} accessible={true} accessibilityLabel={`Nombre y apellido: ${member.name}`}>
             <Text style={styles.nameLabel}>NOMBRE Y APELLIDO</Text>
             <Text style={styles.name} numberOfLines={2}>{member.name}</Text>
           </View>
           
           <View style={styles.dataGrid}>
-            <View style={styles.dataItem}>
+            <View style={styles.dataItem} accessible={true} accessibilityLabel={`Número de socio: ${member.id.slice(0, 8).toUpperCase()}`}>
               <Text style={styles.label}>N° SOCIO</Text>
               <Text style={styles.valueMono}>{member.id.slice(0, 8).toUpperCase()}</Text>
             </View>
-            <View style={styles.dataItem}>
+            <View style={styles.dataItem} accessible={true} accessibilityLabel={`DNI: ${member.dni || 'No registrado'}`}>
               <Text style={styles.label}>DNI</Text>
               <Text style={styles.valueMono}>{member.dni || '-'}</Text>
             </View>
-            <View style={styles.dataItem}>
+            <View style={styles.dataItem} accessible={true} accessibilityLabel={`Vencimiento: ${formatDate(member.expiration)}`}>
               <Text style={styles.label}>VENCIMIENTO</Text>
               <Text style={[styles.valueMono, isExpired && styles.expiredText]}>
                 {formatDate(member.expiration)}
               </Text>
             </View>
-            <View style={styles.dataItem}>
+            <View style={styles.dataItem} accessible={true} accessibilityLabel={`Último pago: ${member.lastPayment ? formatDate(member.lastPayment) : 'No registrado'}`}>
               <Text style={styles.label}>ÚLTIMO PAGO</Text>
               <Text style={styles.valueMono}>
                 {member.lastPayment ? formatDate(member.lastPayment) : '-'}
@@ -87,7 +101,12 @@ const DigitalID = ({ member }) => {
 
       {/* Footer: QR Code & Validation */}
       <View style={styles.footer}>
-        <View style={styles.qrWrapper}>
+        <View 
+          style={styles.qrWrapper}
+          accessible={true}
+          accessibilityLabel={`Código QR para validación del socio ${member.name}`}
+          accessibilityRole="image"
+        >
           <QRCodeCanvas 
             value={member.qr_data || `MEMBER:${member.id}`} 
             size={64}

@@ -3,24 +3,24 @@ import { View, Text, TouchableOpacity, TextInput, StyleSheet, ScrollView, ImageB
 import { Routes, Route, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import supabaseClient from './supabaseClient';
 import { validateLuhn, validateExpiryDate, validateCVV, validateCardName, capitalizeName, formatExpiryDate, formatCardNumber, getCardType } from './utils/validation';
-import AdminRoutes from './admin/AdminRoutes';
-import MembershipForm from './MembershipForm';
-import DigitalID from './DigitalID';
-import TravelAuthorization from './TravelAuthorization';
-import TravelAuthorizationSign from './TravelAuthorizationSign';
-import MemberVerification from './MemberVerification';
+const AdminRoutes = React.lazy(() => import('./admin/AdminRoutes'));
+const MembershipForm = React.lazy(() => import('./MembershipForm'));
+const DigitalID = React.lazy(() => import('./DigitalID'));
+const TravelAuthorization = React.lazy(() => import('./TravelAuthorization'));
+const TravelAuthorizationSign = React.lazy(() => import('./TravelAuthorizationSign'));
+const MemberVerification = React.lazy(() => import('./MemberVerification'));
 import PaymentForm from './PaymentForm';
-import SociosContent from './pages/SociosContent';
-import InstitutionalContent from './pages/InstitutionalContent';
+const SociosContent = React.lazy(() => import('./pages/SociosContent'));
+const InstitutionalContent = React.lazy(() => import('./pages/InstitutionalContent'));
 
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Login from './auth/Login';
 import Register from './auth/Register';
-import UserDashboard from './user/UserDashboard';
-import FamilyManager from './user/FamilyManager';
+const UserDashboard = React.lazy(() => import('./user/UserDashboard'));
+const FamilyManager = React.lazy(() => import('./user/FamilyManager'));
 import RequireAuth from './auth/RequireAuth';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3004/api';
+import { API_URL } from './config/api';
 
 function PageHeader(){
   const navigate = useNavigate();
@@ -823,12 +823,14 @@ function AppContent() {
   return (
     <ScrollView style={styles.page} ref={scrollViewRef}>
       {!isAdminRoute && <PageHeader/>}
+      <React.Suspense fallback={<View style={{flex:1, justifyContent:'center', alignItems:'center', minHeight: '50vh'}}><Text>Cargando...</Text></View>}>
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/dashboard" element={<RequireAuth><UserDashboard /></RequireAuth>} />
         <Route path="/family" element={<RequireAuth><FamilyManager /></RequireAuth>} />
         <Route path="/family/add" element={<RequireAuth><FamilyManager /></RequireAuth>} />
+        <Route path="/family/edit/:id" element={<RequireAuth><FamilyManager /></RequireAuth>} />
         <Route path="/" element={<HomeContent/>}/>
         <Route path="/asociate" element={<MembershipForm/>}/>
         <Route path="/digital-id/:id" element={<DigitalID/>}/>
@@ -847,6 +849,7 @@ function AppContent() {
         <Route path="/noticias" element={<HomeContent/>}/>
         <Route path="/admin/*" element={<AdminRoutes/>}/>
       </Routes>
+      </React.Suspense>
       {!isAdminRoute && <Footer/>}
     </ScrollView>
   );

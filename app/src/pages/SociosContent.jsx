@@ -1,22 +1,23 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, ImageBackground, Image, useWindowDimensions, StyleSheet } from 'react-native';
 import { useNavigate } from 'react-router-dom';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3004/api';
+import { API_URL } from '../config/api';
 
 export default function SociosContent() {
   const { width } = useWindowDimensions();
   const isMobile = width < 768;
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('planes');
-  const [activities, setActivities] = useState([]);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (activeTab === 'actividades') {
+      setLoading(true);
       fetch(`${API_URL}/activities`, { cache: 'no-store' })
         .then(r => r.json())
         .then(d => setActivities(Array.isArray(d) ? d : []))
-        .catch(() => {});
+        .catch(() => {})
+        .finally(() => setLoading(false));
     }
   }, [activeTab]);
 
@@ -27,12 +28,12 @@ export default function SociosContent() {
   ];
 
   return (
-    <View style={styles.container}>
+    <View style={styles.container} accessible={true}>
       {/* Hero Section */}
       <ImageBackground source={{uri: '/assets/hero-campania2.jpeg'}} style={[styles.pageHero, isMobile && {minHeight: '40vh'}]}>
         <View style={styles.pageHeroOverlay}>
           <View style={styles.wrapper}>
-            <Text style={[styles.pageHeroTitle, isMobile && {fontSize: 32}]}>HAZTE SOCIO</Text>
+            <Text style={[styles.pageHeroTitle, isMobile && {fontSize: 32}]} accessibilityRole="header">HAZTE SOCIO</Text>
             <Text style={[styles.pageHeroSubtitle, isMobile && {fontSize: 16}]}>Sé parte de la pasión. Elegí el plan que mejor se adapte a vos.</Text>
           </View>
         </View>
@@ -40,12 +41,15 @@ export default function SociosContent() {
 
       {/* Tab Navigation */}
       <View style={styles.tabContainer}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabScroll}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabScroll} accessible={true} accessibilityRole="tablist">
           {tabs.map(tab => (
             <TouchableOpacity 
               key={tab.key} 
               onPress={() => setActiveTab(tab.key)}
               style={[styles.tabItem, activeTab === tab.key && styles.tabItemActive]}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: activeTab === tab.key }}
+              accessibilityLabel={`Pestaña ${tab.label}`}
             >
               <Text style={[styles.tabText, activeTab === tab.key && styles.tabTextActive]}>{tab.label}</Text>
             </TouchableOpacity>
@@ -66,7 +70,7 @@ export default function SociosContent() {
                 <Text style={styles.pricingFeature}>✓ Acceso al club</Text>
                 <Text style={styles.pricingFeature}>✓ Escuela deportiva</Text>
                 <Text style={styles.pricingFeature}>✓ Descuentos en indumentaria</Text>
-                <TouchableOpacity style={styles.btnOutline} onPress={()=>navigate('/asociate')}><Text style={styles.btnTextOutline}>ASOCIARME</Text></TouchableOpacity>
+                <TouchableOpacity style={styles.btnOutline} onPress={()=>navigate('/asociate')} accessibilityRole="button" accessibilityLabel="Asociarme al plan Menor"><Text style={styles.btnTextOutline}>ASOCIARME</Text></TouchableOpacity>
               </View>
 
               <View style={[styles.pricingCard, styles.pricingCardFeatured]}>
@@ -78,7 +82,7 @@ export default function SociosContent() {
                 <Text style={[styles.pricingFeature, styles.textWhite]}>✓ Gimnasio incluido</Text>
                 <Text style={[styles.pricingFeature, styles.textWhite]}>✓ Voz y voto en asambleas</Text>
                 <Text style={[styles.pricingFeature, styles.textWhite]}>✓ Sorteos exclusivos</Text>
-                <TouchableOpacity style={styles.btnWhite} onPress={()=>navigate('/asociate')}><Text style={styles.btnTextPrimary}>QUIERO ESTE PLAN</Text></TouchableOpacity>
+                <TouchableOpacity style={styles.btnWhite} onPress={()=>navigate('/asociate')} accessibilityRole="button" accessibilityLabel="Quiero el plan Individual"><Text style={styles.btnTextPrimary}>QUIERO ESTE PLAN</Text></TouchableOpacity>
               </View>
 
               <View style={styles.pricingCard}>
@@ -88,7 +92,7 @@ export default function SociosContent() {
                 <Text style={styles.pricingFeature}>✓ Grupo familiar directo</Text>
                 <Text style={styles.pricingFeature}>✓ Acceso para todos</Text>
                 <Text style={styles.pricingFeature}>✓ Escuelas deportivas bonificadas</Text>
-                <TouchableOpacity style={styles.btnOutline} onPress={()=>navigate('/register')}><Text style={styles.btnTextOutline}>ASOCIARME</Text></TouchableOpacity>
+                <TouchableOpacity style={styles.btnOutline} onPress={()=>navigate('/register')} accessibilityRole="button" accessibilityLabel="Asociarme al plan Familiar"><Text style={styles.btnTextOutline}>ASOCIARME</Text></TouchableOpacity>
               </View>
             </View>
           )}
@@ -126,7 +130,14 @@ export default function SociosContent() {
               <View style={[styles.activitiesGrid, isMobile && {gridTemplateColumns: '1fr', gap: 16}]}>
                 {activities.map(a => (
                   <View key={a.id} style={styles.activityCard}>
-                    <Image source={{uri: a.image || '/assets/escuelita-4.jpg'}} style={styles.activityImg} />
+                    <Image 
+                      source={{uri: a.image || '/assets/escuelita-4.jpg'}} 
+                      style={styles.activityImg} 
+                      accessible={true}
+                      accessibilityRole="image"
+                      accessibilityLabel={`Imagen de actividad: ${a.name}`}
+                      loading="lazy"
+                    />
                     <View style={styles.activityContent}>
                       <View style={styles.activityHeader}>
                         <Text style={styles.activityTitle}>{a.name}</Text>
@@ -141,16 +152,21 @@ export default function SociosContent() {
                       </Text>
                       <View style={styles.activityFooter}>
                         <Text style={styles.activitySchedule}>{a.schedule || 'Consultar horarios'}</Text>
-                        <TouchableOpacity style={styles.btnSmall} onPress={() => navigate(`/dashboard?tab=activities&enroll=${encodeURIComponent(a.name)}`)}>
+                        <TouchableOpacity style={styles.btnSmall} onPress={() => navigate(`/dashboard?tab=activities&enroll=${encodeURIComponent(a.name)}`)} accessibilityRole="button" accessibilityLabel={`Inscribirme a ${a.name}`}>
                            <Text style={styles.btnSmallText}>Inscribirme</Text>
                         </TouchableOpacity>
                       </View>
                     </View>
                   </View>
                 ))}
-                {activities.length === 0 && (
+                {loading && (
                   <View style={styles.emptyState}>
                     <Text style={styles.emptyText}>Cargando actividades...</Text>
+                  </View>
+                )}
+                {!loading && activities.length === 0 && (
+                  <View style={styles.emptyState}>
+                    <Text style={styles.emptyText}>No hay actividades disponibles en este momento.</Text>
                   </View>
                 )}
               </View>

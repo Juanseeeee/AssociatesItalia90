@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 
-const API = import.meta.env.VITE_API_URL || 'http://localhost:3003/api';
+import { API_URL as API } from '../../config/api';
 
 const Payments = () => {
   const [payments, setPayments] = useState([]);

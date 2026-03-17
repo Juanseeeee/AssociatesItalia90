@@ -7,6 +7,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import DigitalID from '../components/DigitalID';
+import { API_URL } from '../config/api';
 
 // Imagen cuidadosamente seleccionada de Freepik para complementar la estética deportiva y profesional del club
 const HERO_BG = 'https://img.freepik.com/free-photo/soccer-stadium-night-with-bright-lights-green-grass_181624-58586.jpg';
@@ -39,15 +40,24 @@ const UserDashboard = () => {
   const [showEnrollModal, setShowEnrollModal] = useState(false);
   const [selectedActivity, setSelectedActivity] = useState(null);
   const [newFamilyMember, setNewFamilyMember] = useState({ firstName: '', lastName: '', dni: '', relation: 'Hijo/a', birthDate: '', medicalInfo: '' });
+  const [familyValidationErrors, setFamilyValidationErrors] = useState({});
+  const [familyFiles, setFamilyFiles] = useState({ photo: null, dni_copy: null, school_cert: null, auth_parents: null });
   const [enrollMemberId, setEnrollMemberId] = useState(user?.id);
   const [selectedFamilyMember, setSelectedFamilyMember] = useState(null);
+  const [isSubmittingFamily, setIsSubmittingFamily] = useState(false);
+
+  const fileInputRefs = {
+    photo: useRef(null),
+    dni_copy: useRef(null),
+    school_cert: useRef(null),
+    auth_parents: useRef(null)
+  };
 
   // Animation Refs
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const contentFadeAnim = useRef(new Animated.Value(1)).current;
   const skeletonPulseAnim = useRef(new Animated.Value(0.5)).current;
 
-  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3004/api';
   const { width } = useWindowDimensions();
   const isMobile = width < 768;
   const isDesktop = width >= 1024;
@@ -259,17 +269,34 @@ const UserDashboard = () => {
     }
   };
 
+  const handleFileChange = (name, event) => {
+    if (event.target.files && event.target.files[0]) {
+      setFamilyFiles(prev => ({ ...prev, [name]: event.target.files[0] }));
+    }
+  };
+
+  const handleFileClick = (name) => {
+    if (fileInputRefs[name] && fileInputRefs[name].current) {
+      fileInputRefs[name].current.click();
+    }
+  };
+
   const handleAddFamily = async () => {
-    if (!newFamilyMember.firstName || !newFamilyMember.lastName || !newFamilyMember.dni) {
-      alert('Por favor completá los campos obligatorios');
+    const errors = {};
+    if (!newFamilyMember.firstName) errors.firstName = 'El nombre es obligatorio';
+    if (!newFamilyMember.lastName) errors.lastName = 'El apellido es obligatorio';
+    if (!newFamilyMember.dni) errors.dni = 'El DNI es obligatorio';
+    
+    if (Object.keys(errors).length > 0) {
+      setFamilyValidationErrors(errors);
       return;
     }
     
+    setFamilyValidationErrors({});
+    setIsSubmittingFamily(true);
+
     try {
       const token = localStorage.getItem('token');
-      // Using FormData if we were uploading files, but for simplicity here JSON if API supports it.
-      // The API endpoint expects FormData because of upload.fields middleware.
-      // So we must use FormData.
       
       const formData = new FormData();
       formData.append('firstName', newFamilyMember.firstName);
@@ -278,6 +305,10 @@ const UserDashboard = () => {
       formData.append('relation', newFamilyMember.relation);
       formData.append('birthDate', newFamilyMember.birthDate || new Date().toISOString().split('T')[0]);
       formData.append('medicalInfo', newFamilyMember.medicalInfo || '');
+      
+      Object.keys(familyFiles).forEach(key => {
+        if (familyFiles[key]) formData.append(key, familyFiles[key]);
+      });
 
       const res = await fetch(`${API_URL}/user/family`, {
         method: 'POST',
@@ -289,6 +320,8 @@ const UserDashboard = () => {
         alert('Familiar agregado correctamente');
         setShowFamilyModal(false);
         setNewFamilyMember({ firstName: '', lastName: '', dni: '', relation: 'Hijo/a', birthDate: '', medicalInfo: '' });
+        setFamilyFiles({ photo: null, dni_copy: null, school_cert: null, auth_parents: null });
+        setFamilyValidationErrors({});
         fetchFamily();
       } else {
         const err = await res.json();
@@ -297,6 +330,8 @@ const UserDashboard = () => {
     } catch (error) {
       console.error('Error adding family:', error);
       alert('Error de conexión');
+    } finally {
+      setIsSubmittingFamily(false);
     }
   };
 
@@ -776,32 +811,66 @@ const UserDashboard = () => {
         transparent={true}
         animationType="slide"
         onRequestClose={() => setShowFamilyModal(false)}
+        accessibilityViewIsModal={true}
       >
-        <View style={styles.modalOverlay}>
+        <View style={styles.modalOverlay} accessible={true} accessibilityLabel="Formulario para agregar familiar">
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Agregar Familiar</Text>
+            <Text style={styles.modalTitle} accessibilityRole="header">Agregar Familiar</Text>
             
             <Text style={styles.inputLabel}>Nombre</Text>
             <TextInput 
-              style={styles.input}
+              style={[styles.input, familyValidationErrors.firstName && styles.inputError]}
               value={newFamilyMember.firstName}
-              onChangeText={(t) => setNewFamilyMember({...newFamilyMember, firstName: t})}
+              onChangeText={(t) => {
+                setNewFamilyMember({...newFamilyMember, firstName: t});
+                if (familyValidationErrors.firstName) setFamilyValidationErrors(prev => ({...prev, firstName: null}));
+              }}
+              accessibilityLabel="Nombre del familiar"
+              accessibilityHint="Ingresa el nombre del familiar"
+              placeholder="Nombre"
             />
+            {familyValidationErrors.firstName && (
+              <Text style={styles.errorText} accessibilityLiveRegion="polite">
+                {familyValidationErrors.firstName}
+              </Text>
+            )}
 
             <Text style={styles.inputLabel}>Apellido</Text>
             <TextInput 
-              style={styles.input}
+              style={[styles.input, familyValidationErrors.lastName && styles.inputError]}
               value={newFamilyMember.lastName}
-              onChangeText={(t) => setNewFamilyMember({...newFamilyMember, lastName: t})}
+              onChangeText={(t) => {
+                setNewFamilyMember({...newFamilyMember, lastName: t});
+                if (familyValidationErrors.lastName) setFamilyValidationErrors(prev => ({...prev, lastName: null}));
+              }}
+              accessibilityLabel="Apellido del familiar"
+              accessibilityHint="Ingresa el apellido del familiar"
+              placeholder="Apellido"
             />
+            {familyValidationErrors.lastName && (
+              <Text style={styles.errorText} accessibilityLiveRegion="polite">
+                {familyValidationErrors.lastName}
+              </Text>
+            )}
 
             <Text style={styles.inputLabel}>DNI</Text>
             <TextInput 
-              style={styles.input}
+              style={[styles.input, familyValidationErrors.dni && styles.inputError]}
               value={newFamilyMember.dni}
               keyboardType="numeric"
-              onChangeText={(t) => setNewFamilyMember({...newFamilyMember, dni: t})}
+              onChangeText={(t) => {
+                setNewFamilyMember({...newFamilyMember, dni: t});
+                if (familyValidationErrors.dni) setFamilyValidationErrors(prev => ({...prev, dni: null}));
+              }}
+              accessibilityLabel="DNI del familiar"
+              accessibilityHint="Ingresa el DNI del familiar"
+              placeholder="Número de documento"
             />
+            {familyValidationErrors.dni && (
+              <Text style={styles.errorText} accessibilityLiveRegion="polite">
+                {familyValidationErrors.dni}
+              </Text>
+            )}
 
             <Text style={styles.inputLabel}>Fecha de Nacimiento</Text>
             <TextInput 
@@ -809,15 +878,20 @@ const UserDashboard = () => {
               value={newFamilyMember.birthDate}
               placeholder="YYYY-MM-DD"
               onChangeText={(t) => setNewFamilyMember({...newFamilyMember, birthDate: t})}
+              accessibilityLabel="Fecha de nacimiento"
+              accessibilityHint="Formato año-mes-día"
             />
 
-            <Text style={styles.inputLabel}>Relación</Text>
-            <View style={styles.relationOptions}>
+            <Text style={styles.inputLabel} accessibilityRole="header">Relación</Text>
+            <View style={styles.relationOptions} accessibilityRole="radiogroup">
               {['Hijo/a', 'Cónyuge', 'Padre/Madre'].map((rel) => (
                 <TouchableOpacity 
                   key={rel}
                   style={[styles.relationChip, newFamilyMember.relation === rel && styles.relationChipActive]}
                   onPress={() => setNewFamilyMember({...newFamilyMember, relation: rel})}
+                  accessibilityRole="radio"
+                  accessibilityState={{ checked: newFamilyMember.relation === rel }}
+                  accessibilityLabel={`Relación: ${rel}`}
                 >
                   <Text style={[styles.relationChipText, newFamilyMember.relation === rel && styles.relationChipTextActive]}>{rel}</Text>
                 </TouchableOpacity>
@@ -830,14 +904,97 @@ const UserDashboard = () => {
               value={newFamilyMember.medicalInfo}
               placeholder="Alergias, condiciones, etc."
               onChangeText={(t) => setNewFamilyMember({...newFamilyMember, medicalInfo: t})}
+              accessibilityLabel="Información médica"
             />
 
+            <Text style={[styles.modalSubtitle, {marginTop: 20, marginBottom: 10, fontWeight: 'bold'}]} accessibilityRole="header">Documentación (Opcional por ahora)</Text>
+            
+            <View style={{marginBottom: 10}}>
+              <Text style={styles.inputLabel}>Foto Carnet</Text>
+              <TouchableOpacity 
+                style={styles.fileUploadBtn} 
+                onPress={() => handleFileClick('photo')}
+                accessibilityRole="button"
+                accessibilityLabel={familyFiles.photo ? `Cambiar foto carnet, archivo seleccionado: ${familyFiles.photo.name}` : "Subir foto carnet"}
+                accessibilityHint="Selecciona una imagen para la foto del carnet"
+              >
+                <Text style={styles.fileUploadText} accessibilityLiveRegion="polite">
+                  {familyFiles.photo ? `📄 ${familyFiles.photo.name}` : '📂 Seleccionar Archivo'}
+                </Text>
+              </TouchableOpacity>
+              <input type="file" ref={fileInputRefs.photo} onChange={e => handleFileChange('photo', e)} style={{ display: 'none' }} accept="image/*" />
+            </View>
+
+            <View style={{marginBottom: 10}}>
+              <Text style={styles.inputLabel}>Copia DNI</Text>
+              <TouchableOpacity 
+                style={styles.fileUploadBtn} 
+                onPress={() => handleFileClick('dni_copy')}
+                accessibilityRole="button"
+                accessibilityLabel={familyFiles.dni_copy ? `Cambiar copia del DNI, archivo seleccionado: ${familyFiles.dni_copy.name}` : "Subir copia del DNI"}
+                accessibilityHint="Selecciona una imagen o PDF del DNI"
+              >
+                <Text style={styles.fileUploadText} accessibilityLiveRegion="polite">
+                  {familyFiles.dni_copy ? `📄 ${familyFiles.dni_copy.name}` : '📂 Seleccionar Archivo'}
+                </Text>
+              </TouchableOpacity>
+              <input type="file" ref={fileInputRefs.dni_copy} onChange={e => handleFileChange('dni_copy', e)} style={{ display: 'none' }} accept="image/*,.pdf" />
+            </View>
+
+            <View style={{marginBottom: 10}}>
+              <Text style={styles.inputLabel}>Certificado Escolar</Text>
+              <TouchableOpacity 
+                style={styles.fileUploadBtn} 
+                onPress={() => handleFileClick('school_cert')}
+                accessibilityRole="button"
+                accessibilityLabel={familyFiles.school_cert ? `Cambiar certificado escolar, archivo seleccionado: ${familyFiles.school_cert.name}` : "Subir certificado escolar"}
+                accessibilityHint="Selecciona una imagen o PDF del certificado escolar"
+              >
+                <Text style={styles.fileUploadText} accessibilityLiveRegion="polite">
+                  {familyFiles.school_cert ? `📄 ${familyFiles.school_cert.name}` : '📂 Seleccionar Archivo'}
+                </Text>
+              </TouchableOpacity>
+              <input type="file" ref={fileInputRefs.school_cert} onChange={e => handleFileChange('school_cert', e)} style={{ display: 'none' }} accept="image/*,.pdf" />
+            </View>
+
+            <View style={{marginBottom: 10}}>
+              <Text style={styles.inputLabel}>Autorización de Padres</Text>
+              <TouchableOpacity 
+                style={styles.fileUploadBtn} 
+                onPress={() => handleFileClick('auth_parents')}
+                accessibilityRole="button"
+                accessibilityLabel={familyFiles.auth_parents ? `Cambiar autorización de padres, archivo seleccionado: ${familyFiles.auth_parents.name}` : "Subir autorización de padres"}
+                accessibilityHint="Selecciona una imagen o PDF de la autorización"
+              >
+                <Text style={styles.fileUploadText} accessibilityLiveRegion="polite">
+                  {familyFiles.auth_parents ? `📄 ${familyFiles.auth_parents.name}` : '📂 Seleccionar Archivo'}
+                </Text>
+              </TouchableOpacity>
+              <input type="file" ref={fileInputRefs.auth_parents} onChange={e => handleFileChange('auth_parents', e)} style={{ display: 'none' }} accept="image/*,.pdf" />
+            </View>
+
             <View style={styles.modalActions}>
-              <TouchableOpacity style={styles.outlineBtn} onPress={() => setShowFamilyModal(false)}>
+              <TouchableOpacity 
+                style={styles.outlineBtn} 
+                onPress={() => setShowFamilyModal(false)}
+                accessibilityRole="button"
+                accessibilityLabel="Cancelar agregar familiar"
+              >
                 <Text style={styles.outlineBtnText}>Cancelar</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.primaryBtn} onPress={handleAddFamily}>
-                <Text style={styles.primaryBtnText}>Guardar</Text>
+              <TouchableOpacity 
+                style={[styles.primaryBtn, isSubmittingFamily && {opacity: 0.7}]} 
+                onPress={handleAddFamily}
+                disabled={isSubmittingFamily}
+                accessibilityRole="button"
+                accessibilityLabel={isSubmittingFamily ? "Guardando familiar..." : "Guardar familiar"}
+                accessibilityState={{ busy: isSubmittingFamily }}
+              >
+                {isSubmittingFamily ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.primaryBtnText}>Guardar</Text>
+                )}
               </TouchableOpacity>
             </View>
           </View>
@@ -850,19 +1007,23 @@ const UserDashboard = () => {
         transparent={true}
         animationType="fade"
         onRequestClose={() => setShowEnrollModal(false)}
+        accessibilityViewIsModal={true}
       >
-        <View style={styles.modalOverlay}>
+        <View style={styles.modalOverlay} accessible={true} accessibilityLabel="Inscripción a actividad">
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Inscribirse a Actividad</Text>
-            <Text style={styles.modalSubtitle}>
+            <Text style={styles.modalTitle} accessibilityRole="header">Inscribirse a Actividad</Text>
+            <Text style={styles.modalSubtitle} accessibilityLabel={`Actividad seleccionada: ${selectedActivity?.name}`}>
               {selectedActivity?.name}
             </Text>
 
-            <Text style={styles.inputLabel}>¿Quién asistirá?</Text>
-            <View style={styles.memberSelectContainer}>
+            <Text style={styles.inputLabel} accessibilityRole="header">¿Quién asistirá?</Text>
+            <View style={styles.memberSelectContainer} accessibilityRole="radiogroup">
               <TouchableOpacity 
                 style={[styles.memberOption, enrollMemberId === user?.id && styles.memberOptionActive]}
                 onPress={() => setEnrollMemberId(user?.id)}
+                accessibilityRole="radio"
+                accessibilityState={{ checked: enrollMemberId === user?.id }}
+                accessibilityLabel={`Yo, ${user?.firstName}`}
               >
                 <Text style={styles.memberOptionText}>Yo ({user?.firstName})</Text>
               </TouchableOpacity>
@@ -872,6 +1033,9 @@ const UserDashboard = () => {
                   key={f.id}
                   style={[styles.memberOption, enrollMemberId === f.id && styles.memberOptionActive]}
                   onPress={() => setEnrollMemberId(f.id)}
+                  accessibilityRole="radio"
+                  accessibilityState={{ checked: enrollMemberId === f.id }}
+                  accessibilityLabel={`${f.first_name || f.firstName}, ${f.relation}`}
                 >
                   <Text style={styles.memberOptionText}>
                     {f.first_name || f.firstName} ({f.relation})
@@ -881,10 +1045,20 @@ const UserDashboard = () => {
             </View>
 
             <View style={styles.modalActions}>
-              <TouchableOpacity style={styles.outlineBtn} onPress={() => setShowEnrollModal(false)}>
+              <TouchableOpacity 
+                style={styles.outlineBtn} 
+                onPress={() => setShowEnrollModal(false)}
+                accessibilityRole="button"
+                accessibilityLabel="Cancelar inscripción"
+              >
                 <Text style={styles.outlineBtnText}>Cancelar</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.primaryBtn} onPress={handleEnroll}>
+              <TouchableOpacity 
+                style={styles.primaryBtn} 
+                onPress={handleEnroll}
+                accessibilityRole="button"
+                accessibilityLabel="Confirmar inscripción"
+              >
                 <Text style={styles.primaryBtnText}>Confirmar</Text>
               </TouchableOpacity>
             </View>
@@ -898,16 +1072,20 @@ const UserDashboard = () => {
         transparent={true}
         animationType="slide"
         onRequestClose={() => setSelectedFamilyMember(null)}
+        accessibilityViewIsModal={true}
       >
-        <View style={styles.modalOverlay}>
+        <View style={styles.modalOverlay} accessible={true} accessibilityLabel="Carnet digital familiar">
           <TouchableOpacity 
-            style={{ position: 'absolute', top: 40, right: 20, zIndex: 10, padding: 10 }} 
+            style={styles.modalCloseBtn} 
             onPress={() => setSelectedFamilyMember(null)}
+            accessibilityRole="button"
+            accessibilityLabel="Cerrar carnet"
+            accessibilityHint="Cierra la vista del carnet digital"
           >
-            <Text style={{ color: '#fff', fontSize: 28, fontWeight: 'bold' }}>✕</Text>
+            <Text style={styles.modalCloseBtnText}>✕</Text>
           </TouchableOpacity>
           
-          <View style={{ width: '90%', maxWidth: 400 }}>
+          <View style={{ width: '90%', maxWidth: 400 }} accessibilityLabel={`Carnet digital de ${selectedFamilyMember?.first_name || selectedFamilyMember?.firstName}`}>
             {selectedFamilyMember && (
               <DigitalID member={{
                 id: selectedFamilyMember.id,
@@ -929,6 +1107,23 @@ const UserDashboard = () => {
 };
 
 const styles = StyleSheet.create({
+  modalCloseBtn: {
+    position: 'absolute',
+    top: 40,
+    right: 20,
+    zIndex: 10,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalCloseBtnText: {
+    color: '#fff',
+    fontSize: 24,
+    fontWeight: 'bold',
+  },
   container: {
     flex: 1,
     backgroundColor: '#f8fafc',
@@ -1438,6 +1633,16 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#0f172a',
   },
+  inputError: {
+    borderColor: '#ef4444',
+    backgroundColor: '#fef2f2',
+  },
+  errorText: {
+    color: '#ef4444',
+    fontSize: 12,
+    marginTop: 4,
+    fontWeight: '600',
+  },
   relationOptions: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -1487,6 +1692,21 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
     color: '#334155',
+  },
+  fileUploadBtn: {
+    backgroundColor: '#f8fafc',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderStyle: 'dashed',
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fileUploadText: {
+    color: '#64748b',
+    fontSize: 14,
+    fontWeight: '500',
   }
 });
 

@@ -8,6 +8,7 @@ import { argentinaData } from '../utils/argentinaData';
 import { validatePersonAPI, validateAddressAPI } from '../utils/apiValidation';
 import CameraCapture from '../CameraCapture';
 import AutocompleteSelect from '../components/AutocompleteSelect';
+import { API_URL } from '../config/api';
 
 const STEPS = [
   { id: 1, title: 'Datos Personales' },
@@ -129,6 +130,9 @@ const Register = () => {
     if (!formData.firstName) errors.firstName = 'Requerido';
     if (!formData.lastName) errors.lastName = 'Requerido';
     if (!formData.dni) errors.dni = 'Requerido';
+    if (!formData.email) errors.email = 'Requerido';
+    if (!formData.password) errors.password = 'Requerido';
+    else if (formData.password.length < 6) errors.password = 'Mínimo 6 caracteres';
     
     if (!formData.birthDate) {
       errors.birthDate = 'Requerido';
@@ -164,7 +168,6 @@ const Register = () => {
   const checkDuplicate = async (email, dni) => {
     setIsChecking(true);
     try {
-      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3004/api';
       const params = new URLSearchParams();
       if (email) params.append('email', email);
       if (dni) params.append('dni', dni);
@@ -440,7 +443,7 @@ const Register = () => {
       <View style={styles.inputGroup}>
         <Text style={styles.label}>Email</Text>
         <TextInput 
-          style={styles.input} 
+          style={[styles.input, validationErrors.email && { borderColor: 'red' }]}
           value={formData.email} 
           onChangeText={t => updateField('email', t)} 
           keyboardType="email-address" 
@@ -450,11 +453,19 @@ const Register = () => {
             if (formData.email && formData.email.includes('@')) checkDuplicate(formData.email, formData.dni);
           }}
         />
+        {validationErrors.email && <Text style={styles.errorText}>{validationErrors.email}</Text>}
       </View>
       
       <View style={styles.inputGroup}>
         <Text style={styles.label}>Contraseña</Text>
-        <TextInput style={styles.input} value={formData.password} onChangeText={t => updateField('password', t)} secureTextEntry placeholder="••••••" />
+        <TextInput 
+          style={[styles.input, validationErrors.password && { borderColor: 'red' }]}
+          value={formData.password} 
+          onChangeText={t => updateField('password', t)} 
+          secureTextEntry 
+          placeholder="••••••" 
+        />
+        {validationErrors.password && <Text style={styles.errorText}>{validationErrors.password}</Text>}
       </View>
     </View>
   );
@@ -607,7 +618,6 @@ const Register = () => {
     });
     data.append('role', 'member');
 
-    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3004/api';
     const regRes = await fetch(`${API_URL}/auth/register`, {
       method: 'POST',
       body: data
@@ -634,7 +644,6 @@ const Register = () => {
       }
 
       // 2. Crear preferencia de pago MP (Checkout Redirect)
-      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3004/api';
       const prefRes = await fetch(`${API_URL}/payments/create-preference`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
