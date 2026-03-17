@@ -40,3 +40,9 @@ create policy services_write_admin on public.services
   for all to authenticated
   using (exists (select 1 from public.admins a where a.user_id = auth.uid() and a.enabled = true))
   with check (exists (select 1 from public.admins a where a.user_id = auth.uid() and a.enabled = true));
+
+-- Update Activities for Recurrence
+alter table public.activities add column if not exists is_recurring boolean default false;
+alter table public.activities add column if not exists recurrence_days text[]; -- Stores array of days e.g. ['Monday', 'Wednesday']
+alter table public.activities add column if not exists start_time time;
+alter table public.activities add column if not exists end_time time;

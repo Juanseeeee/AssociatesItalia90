@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Users, CreditCard, Calendar, Activity, TrendingUp, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 
-const API = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+const API = import.meta.env.VITE_API_URL || 'http://localhost:3003/api';
 
 const Dashboard = () => {
   const navigate = useNavigate();

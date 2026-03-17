@@ -1,5 +1,5 @@
 import express from 'express';
-import { checkDuplicate, register, login, getMe, forgotPassword } from '../controllers/authController.js';
+import { checkDuplicate, register, login, adminLogin, getMe, forgotPassword } from '../controllers/authController.js';
 import multer from 'multer';
 
 const router = express.Router();
@@ -24,6 +24,7 @@ router.post('/register', upload.fields([
   { name: 'backDni', maxCount: 1 }
 ]), register);
 router.post('/login', login);
+router.post('/admin-login', adminLogin);
 router.post('/forgot-password', forgotPassword);
 router.get('/me', requireAuth, getMe);
 

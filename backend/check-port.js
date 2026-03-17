@@ -1,7 +1,7 @@
 const net = require('net');
 const fs = require('fs');
 const client = new net.Socket();
-client.connect(3001, '127.0.0.1', function() {
+client.connect(3003, '127.0.0.1', function() {
 	fs.writeFileSync('port_status.txt', 'Connected');
 	client.destroy();
 });

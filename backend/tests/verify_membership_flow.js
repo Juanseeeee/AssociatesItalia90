@@ -1,4 +1,4 @@
-const API = 'http://localhost:3001/api';
+const API = 'http://localhost:3003/api';
 
 async function run() {
     try {

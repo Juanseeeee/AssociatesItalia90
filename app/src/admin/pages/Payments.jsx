@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 
-const API = 'http://localhost:3001/api';
+const API = import.meta.env.VITE_API_URL || 'http://localhost:3003/api';
 
 const Payments = () => {
   const [payments, setPayments] = useState([]);
@@ -204,7 +204,12 @@ const Payments = () => {
                         {payment.email}
                       </div>
                     </td>
-                    <td className="text-[var(--text-muted)] hidden sm:table-cell">{payment.email}</td>
+                    <td className="text-[var(--text-muted)] hidden sm:table-cell">
+                      <div className="flex flex-col">
+                        <span>{payment.email || '-'}</span>
+                        {payment.user_name && <span className="text-xs opacity-70">{payment.user_name}</span>}
+                      </div>
+                    </td>
                     <td className="text-sm text-[var(--text-muted)] hidden md:table-cell">
                       {payment.created_at ? new Date(payment.created_at).toLocaleDateString() : '-'}
                     </td>
@@ -213,7 +218,7 @@ const Payments = () => {
                     </td>
                     <td>{getStatusBadge(payment.status)}</td>
                     <td className="text-sm text-[var(--text-muted)] capitalize hidden lg:table-cell">
-                      {payment.method || 'Tarjeta'}
+                      {payment.payment_method || payment.method || 'Tarjeta'}
                     </td>
                   </tr>
                 ))

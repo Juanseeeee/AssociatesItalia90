@@ -23,7 +23,7 @@ const FamilyManager = () => {
     auth_parents: null
   });
 
-  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3003/api';
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3004/api';
 
   const handleInputChange = (name, value) => {
     setFormData(prev => ({ ...prev, [name]: value }));

@@ -1,0 +1,23 @@
+import express from 'express';
+import { getActivities, createActivity, updateActivity, enrollMember, getEnrollments } from '../controllers/activityController.js';
+import { requireAuth, requireAdmin } from '../middleware/auth.js';
+import multer from 'multer';
+
+const router = express.Router();
+
+// Multer setup for activity images
+const upload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
+});
+
+// Public/Member routes
+router.get('/', getActivities);
+router.get('/enrollments', requireAuth, getEnrollments);
+router.post('/:id/enroll', requireAuth, enrollMember);
+
+// Admin routes
+router.post('/', requireAuth, requireAdmin, upload.single('image'), createActivity);
+router.put('/:id', requireAuth, requireAdmin, upload.single('image'), updateActivity);
+
+export default router;

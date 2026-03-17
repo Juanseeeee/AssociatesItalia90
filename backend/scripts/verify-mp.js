@@ -109,7 +109,7 @@ async function runDiagnostics() {
   // 3. Simulación de Webhook (Validación de lógica de recepción)
   console.log('\n🔄 Simulando recepción de Webhook (Test local)...');
   // Nota: Esto solo prueba que la lógica de script es coherente, no golpea al endpoint real del backend
-  // Para probar el endpoint real, necesitaríamos hacer un fetch a localhost:3001
+  // Para probar el endpoint real, necesitaríamos hacer un fetch a localhost:3003
   
   console.log('✅ Diagnóstico finalizado. Si la creación de preferencia fue exitosa, la integración básica funciona.');
   console.log('   -> Recuerda: Para probar pagos, usa las tarjetas de prueba de Mercado Pago en el Sandbox Init Point.');

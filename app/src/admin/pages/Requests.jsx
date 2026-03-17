@@ -12,7 +12,7 @@ import {
 import { toast } from 'sonner';
 import Modal from '../components/Modal';
 
-const API = 'http://localhost:3001/api';
+const API = import.meta.env.VITE_API_URL || 'http://localhost:3003/api';
 
 const Requests = () => {
   const [requests, setRequests] = useState([]);

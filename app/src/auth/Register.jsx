@@ -66,6 +66,8 @@ const Register = () => {
     };
   });
 
+  const [registeredUser, setRegisteredUser] = useState(null);
+
   const [previews, setPreviews] = useState({
     frontDni: null,
     backDni: null,
@@ -162,7 +164,7 @@ const Register = () => {
   const checkDuplicate = async (email, dni) => {
     setIsChecking(true);
     try {
-      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3003/api';
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3004/api';
       const params = new URLSearchParams();
       if (email) params.append('email', email);
       if (dni) params.append('dni', dni);
@@ -274,7 +276,28 @@ const Register = () => {
     if (currentStep === 2) isValid = await validateStep2();
     if (currentStep === 3) isValid = validateStep3();
     
-    if (isValid) setCurrentStep(prev => prev + 1);
+    if (isValid) {
+      if (currentStep === 3 && !registeredUser) {
+        setLoading(true);
+        setGlobalError('');
+        try {
+          const regData = await registerUser();
+          setRegisteredUser(regData.user);
+          // Opcionalmente guardar el token en localStorage para que cuando redirija al pago o dashboard ya esté logueado
+          if (regData.token) {
+            localStorage.setItem('token', regData.token);
+            localStorage.setItem('user', JSON.stringify(regData.user));
+          }
+        } catch (err) {
+          console.error(err);
+          setGlobalError(err.message || 'Error en el proceso de registro');
+          setLoading(false);
+          return; // Detener avance si falla el registro
+        }
+        setLoading(false);
+      }
+      setCurrentStep(prev => prev + 1);
+    }
   };
 
   const handlePrev = () => {
@@ -573,51 +596,67 @@ const Register = () => {
     </View>
   );
 
+  const registerUser = async () => {
+    const data = new FormData();
+    Object.keys(formData).forEach(key => {
+      if (['frontDni', 'backDni', 'photo'].includes(key)) {
+        if (formData[key]) data.append(key, formData[key]);
+      } else {
+        data.append(key, formData[key]);
+      }
+    });
+    data.append('role', 'member');
+
+    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3004/api';
+    const regRes = await fetch(`${API_URL}/auth/register`, {
+      method: 'POST',
+      body: data
+    });
+    
+    const regData = await regRes.json();
+
+    if (!regRes.ok) {
+      throw new Error(regData.error || 'Error al registrar usuario');
+    }
+    
+    return regData;
+  };
+
   const handleSubscribe = async () => {
     setLoading(true);
+    setGlobalError('');
     try {
-      // 1. Registrar usuario primero
-      const data = new FormData();
-      Object.keys(formData).forEach(key => {
-        if (['frontDni', 'backDni', 'photo'].includes(key)) {
-          if (formData[key]) data.append(key, formData[key]);
-        } else {
-          data.append(key, formData[key]);
-        }
-      });
-      data.append('role', 'member');
+      const userId = registeredUser?.id;
+      const userEmail = registeredUser?.email || formData.email;
 
-      // Llamada al registro
-      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3003/api';
-      const regRes = await fetch(`${API_URL}/auth/register`, {
-        method: 'POST',
-        body: data
-      });
-      
-      if (!regRes.ok) {
-        const err = await regRes.json();
-        throw new Error(err.error || 'Error al registrar usuario');
+      if (!userId) {
+        throw new Error('Usuario no registrado. Por favor, vuelva al paso anterior e intente de nuevo.');
       }
 
-      // 2. Crear suscripción MP
-      const subRes = await fetch(`${API_URL}/payments/subscribe`, {
+      // 2. Crear preferencia de pago MP (Checkout Redirect)
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3004/api';
+      const prefRes = await fetch(`${API_URL}/payments/create-preference`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          email: formData.email,
-          amount: 12000,
-          reason: 'Suscripción Mensual - Club Italia 90'
+          title: 'Suscripción Mensual - Club Italia 90',
+          quantity: 1,
+          price: 12000,
+          email: userEmail,
+          userId: userId
         })
       });
 
-      if (!subRes.ok) {
-        const err = await subRes.json();
-        throw new Error(err.error || 'Error al crear suscripción');
+      if (!prefRes.ok) {
+        const err = await prefRes.json();
+        const detailMsg = err.details ? (typeof err.details === 'object' ? JSON.stringify(err.details) : err.details) : '';
+        throw new Error(`${err.error || 'Error al crear preferencia de pago'} ${detailMsg}`);
       }
 
-      const { init_point } = await subRes.json();
+      const { init_point } = await prefRes.json();
       
-      // 3. Redirigir a Mercado Pago
+      // 3. Limpiar storage y redirigir a Mercado Pago
+      localStorage.removeItem('registerFormData');
       window.location.href = init_point;
 
     } catch (err) {
@@ -629,38 +668,23 @@ const Register = () => {
 
   const handleCardSubscription = async () => {
     setLoading(true);
+    setGlobalError('');
     try {
-      // 1. Registrar usuario primero
-      const data = new FormData();
-      Object.keys(formData).forEach(key => {
-        if (['frontDni', 'backDni', 'photo'].includes(key)) {
-          if (formData[key]) data.append(key, formData[key]);
-        } else {
-          data.append(key, formData[key]);
-        }
-      });
-      data.append('role', 'member');
+      const userId = registeredUser?.id;
+      const userEmail = registeredUser?.email || formData.email;
 
-      // Llamada al registro
-      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3003/api';
-      const regRes = await fetch(`${API_URL}/auth/register`, {
-        method: 'POST',
-        body: data
-      });
-      
-      const regData = await regRes.json();
-
-      if (!regRes.ok) {
-        throw new Error(regData.error || 'Error al registrar usuario');
+      if (!userId) {
+        throw new Error('Usuario no registrado. Por favor, vuelva al paso anterior e intente de nuevo.');
       }
 
       // 2. Redirigir a formulario de tarjeta
+      localStorage.removeItem('registerFormData');
       navigate('/pagos', { 
         state: { 
           concept: 'Suscripción Mensual - Club Italia 90', 
           amount: 12000, 
-          enrollment_id: regData.user.id,
-          email: formData.email
+          enrollment_id: userId,
+          email: userEmail
         } 
       });
 

@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, TextInput, StyleSheet, ScrollView, ImageBackground, Image, useWindowDimensions, Platform } from 'react-native';
-import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
+import { Routes, Route, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import supabaseClient from './supabaseClient';
 import { validateLuhn, validateExpiryDate, validateCVV, validateCardName, capitalizeName, formatExpiryDate, formatCardNumber, getCardType } from './utils/validation';
 import AdminRoutes from './admin/AdminRoutes';
@@ -18,7 +18,7 @@ import UserDashboard from './user/UserDashboard';
 import FamilyManager from './user/FamilyManager';
 import RequireAuth from './auth/RequireAuth';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3003/api';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3004/api';
 
 function PageHeader(){
   const navigate = useNavigate();
@@ -43,9 +43,9 @@ function PageHeader(){
       path: '/actividades', 
       label: 'Deportes',
       subItems: [
-        { label: 'Fútbol 5', path: '/actividades' },
-        { label: 'Escuelita de fútbol', path: '/actividades' },
-        { label: 'Fútbol Femenino', path: '/actividades' }
+        { label: 'Fútbol 5', path: '/actividades?section=f5' },
+        { label: 'Escuelita de fútbol', path: '/actividades?section=escuela' },
+        { label: 'Fútbol Femenino', path: '/actividades?section=femenino' }
       ]
     },
     { 
@@ -409,8 +409,9 @@ function AppContent() {
   const isMobile = width < 768;
   const navigate = useNavigate();
   const location = useLocation(); // Añadido para verificar ruta
+  const { user } = useAuth(); // Usamos el hook de auth real
   const [route, setRoute] = useState('home');
-  const [session, setSession] = useState(null);
+  const [session, setSession] = useState(null); // Mantener para compatibilidad si se usa en otro lado
   const [kpis, setKpis] = useState({memberships:0, payments:0, activities:0});
   const [activities, setActivities] = useState([]);
   const [payments, setPayments] = useState([]);
@@ -566,6 +567,59 @@ function AppContent() {
   const ActividadesContent = () => {
     const heroImages = ['/assets/deportes-1.jpg', '/assets/deportes-2.jpg', '/assets/Femenino-12.jpg'];
     const [heroIndex, setHeroIndex] = useState(0);
+    const [searchParams] = useSearchParams();
+    const section = searchParams.get('section');
+
+    const carouselItems = useMemo(() => [
+      {
+        id: 'escuela',
+        title: 'Escuelita de Fútbol',
+        image: '/assets/escuelita-3.jpg',
+        tag: 'FÚTBOL INFANTIL',
+        description: 'Para niños y niñas de 4 a 12 años. Iniciación deportiva, valores y compañerismo en un ambiente seguro y divertido.',
+        schedule: 'Lunes y Miércoles 17hs',
+        extra: 'Cupos Limitados'
+      },
+      {
+        id: 'f5',
+        title: 'Fútbol 5',
+        image: '/assets/deportes-1.jpg',
+        tag: 'ALQUILER Y TORNEOS',
+        description: 'Canchas de césped sintético de última generación. Torneos nocturnos y alquiler por hora.',
+        schedule: 'Todos los días 18-24hs',
+        extra: 'Reservas Online'
+      },
+      {
+        id: 'femenino',
+        title: 'Fútbol Femenino',
+        image: '/assets/Femenino-12.jpg',
+        tag: 'ENTRENAMIENTO',
+        description: 'Entrenamientos tácticos y físicos para todas las edades. Sumate a nuestros equipos competitivos.',
+        schedule: 'Martes y Jueves 19hs',
+        extra: 'Primera clase bonificada'
+      }
+    ], []);
+
+    const getInitialIndex = () => {
+       if(section === 'f5') return 1;
+       if(section === 'femenino') return 2;
+       return 0;
+    };
+
+    const [carouselIndex, setCarouselIndex] = useState(getInitialIndex());
+
+    useEffect(() => {
+        if(section === 'f5') setCarouselIndex(1);
+        else if(section === 'femenino') setCarouselIndex(2);
+        else if(section === 'escuela') setCarouselIndex(0);
+    }, [section]);
+
+    useEffect(() => {
+      const interval = setInterval(() => {
+        setCarouselIndex((prev) => (prev + 1) % carouselItems.length);
+      }, 5000);
+      return () => clearInterval(interval);
+    }, [carouselItems.length]);
 
     useEffect(() => {
       const interval = setInterval(() => {
@@ -574,32 +628,55 @@ function AppContent() {
       return () => clearInterval(interval);
     }, []);
 
+    const currentItem = carouselItems[carouselIndex];
+
     return (
       <>
             <ImageBackground source={{uri: heroImages[heroIndex]}} style={[styles.pageHero, isMobile && {minHeight: '40vh'}]}>
               <View style={styles.pageHeroOverlay}>
-                <View style={styles.wrapper}>
+                <View style={[styles.wrapper, {alignItems: 'center'}]}>
                   <Text style={[styles.pageHeroTitle, isMobile && {fontSize: 32}]}>ACTIVIDADES Y DEPORTES</Text>
-                  <Text style={[styles.pageHeroSubtitle, isMobile && {fontSize: 16}]}>Formamos deportistas y personas. Sumate a nuestras disciplinas.</Text>
+                  <Text style={[styles.pageHeroSubtitle, {textAlign: 'center'}, isMobile && {fontSize: 16}]}>Formamos deportistas y personas. Sumate a nuestras disciplinas.</Text>
                 </View>
               </View>
             </ImageBackground>
             
             <View style={styles.sectionContainer}>
               <View style={styles.wrapper}>
-                <Text style={styles.sectionTitleLarge}>NUESTRAS ESCUELAS</Text>
+                <Text style={styles.sectionTitleLarge}>DEPORTES</Text>
                 <View style={[styles.activitiesGrid, isMobile && {gridTemplateColumns: '1fr', display: 'flex', flexDirection: 'column'}]}>
                   <View style={[styles.activityBigCard, isMobile && {flexDirection: 'column'}]}>
-                     <Image source={{uri:'/assets/escuelita-3.jpg'}} style={[styles.activityBigImg, isMobile && {width: '100%', height: 200}]}/>
+                     <Image source={{uri: currentItem.image}} style={[styles.activityBigImg, isMobile && {width: '100%', height: 200}]}/>
                      <View style={styles.activityBigContent}>
-                        <View style={styles.tag}><Text style={styles.tagText}>FÚTBOL INFANTIL</Text></View>
-                        <Text style={styles.activityBigTitle}>Escuelita de Fútbol</Text>
-                        <Text style={styles.p}>Para niños y niñas de 4 a 12 años. Iniciación deportiva, valores y compañerismo en un ambiente seguro y divertido.</Text>
+                        <View style={styles.tag}><Text style={styles.tagText}>{currentItem.tag}</Text></View>
+                        <Text style={styles.activityBigTitle}>{currentItem.title}</Text>
+                        <Text style={styles.p}>{currentItem.description}</Text>
                         <View style={[styles.row, isMobile && {flexDirection: 'column', alignItems: 'flex-start', gap: 8}]}>
-                          <View style={styles.infoBadge}><Text style={styles.infoBadgeText}>Lunes y Miércoles 17hs</Text></View>
-                          <View style={styles.infoBadge}><Text style={styles.infoBadgeText}>Cupos Limitados</Text></View>
+                          <View style={styles.infoBadge}><Text style={styles.infoBadgeText}>{currentItem.schedule}</Text></View>
+                          <View style={styles.infoBadge}><Text style={styles.infoBadgeText}>{currentItem.extra}</Text></View>
                         </View>
-                        <TouchableOpacity style={styles.btn}><Text style={styles.btnTextPrimary}>QUIERO INSCRIBIRME</Text></TouchableOpacity>
+                        <TouchableOpacity style={styles.btn} onPress={() => {
+                            if (!user) {
+                                navigate('/login', { state: { returnTo: `/dashboard?tab=activities&enroll=${encodeURIComponent(currentItem.title)}` } });
+                            } else {
+                                navigate(`/dashboard?tab=activities&enroll=${encodeURIComponent(currentItem.title)}`);
+                            }
+                        }}>
+                            <Text style={styles.btnTextPrimary}>QUIERO INSCRIBIRME</Text>
+                        </TouchableOpacity>
+                        
+                        <View style={{flexDirection: 'row', gap: 8, marginTop: 16}}>
+                            {carouselItems.map((_, idx) => (
+                                <TouchableOpacity 
+                                    key={idx} 
+                                    onPress={() => setCarouselIndex(idx)}
+                                    style={{
+                                        width: 10, height: 10, borderRadius: 5, 
+                                        backgroundColor: idx === carouselIndex ? '#049756' : '#e5e7eb'
+                                    }}
+                                />
+                            ))}
+                        </View>
                      </View>
                   </View>
 
@@ -612,31 +689,11 @@ function AppContent() {
                          <Text style={styles.activityItemInfo}>Cupos: {a.slots}</Text>
                          {a.cost > 0 && <Text style={[styles.activityItemInfo, {color: '#049756', fontWeight: 'bold', marginLeft: 10}]}>${a.cost}/mes</Text>}
                       </View>
-                      <TouchableOpacity style={styles.btnOutline} onPress={async () => {
-                        if (!session) {
-                           navigate('/perfil');
-                           return;
-                        }
-                        try {
-                          const res = await fetch(`${API_URL}/activities/${a.id}/register`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ email: session.email })
-                          });
-                          const data = await res.json();
-                          if (!res.ok) {
-                            alert(data.error || 'Error al inscribirse');
-                            return;
-                          }
-                          if (data.payment_required) {
-                            navigate('/pagos', { state: { concept: `Inscripción: ${a.name}`, amount: a.cost, enrollment_id: data.enrollment.id } });
-                          } else {
-                            alert('¡Inscripción exitosa!');
-                            navigate('/perfil');
-                          }
-                        } catch (e) {
-                          console.error(e);
-                          alert('Error de conexión');
+                      <TouchableOpacity style={styles.btnOutline} onPress={() => {
+                        if (!user) {
+                           navigate('/login', { state: { returnTo: `/dashboard?tab=activities&enroll=${encodeURIComponent(a.name)}` } });
+                        } else {
+                           navigate(`/dashboard?tab=activities&enroll=${encodeURIComponent(a.name)}`);
                         }
                       }}>
                         <Text style={styles.btnTextOutline}>Inscribirme</Text>
@@ -1086,7 +1143,7 @@ const PaymentPending = () => {
 
 const styles = StyleSheet.create({
   page: { backgroundColor:'transparent', minHeight:'100%' },
-  headerBar: { paddingHorizontal:24, paddingVertical:0, backgroundColor:'transparent', borderBottomWidth:0, borderColor:'transparent', marginBottom:0, position:'fixed', top:0, left:0, right:0, zIndex:1000, transition: 'all 0.3s ease' },
+  headerBar: { paddingHorizontal:24, paddingVertical:0, backgroundColor:'transparent', borderBottomWidth:0, borderColor:'transparent', marginBottom:0, position:'fixed', top:12, left:0, right:0, zIndex:1000, transition: 'all 0.3s ease' },
   headerBarScrolled: { backgroundColor: '#070571', paddingVertical: 12, boxShadow: '0 4px 20px rgba(0,0,0,0.15)' },
   headerInner:{ maxWidth:1400, alignSelf:'center', width:'100%', flexDirection:'row', alignItems:'center', justifyContent:'space-between', gap:14, position:'relative', minHeight:80, zIndex:1001 },
   brandContainer: { flexDirection: 'row', alignItems: 'center' },
@@ -1270,7 +1327,7 @@ const styles = StyleSheet.create({
   ,membershipBanner:{ height: 400, justifyContent: 'center', marginVertical: 40 }
   ,membershipOverlay:{ ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(7,5,113,0.85)', justifyContent: 'center', alignItems: 'center', padding: 24 }
   ,membershipTitle:{ color: '#fff', fontSize: 48, fontWeight: '900', textAlign: 'center', marginBottom: 16, textTransform: 'uppercase', letterSpacing: -1 }
-  ,membershipSubtitle:{ color: 'rgba(255,255,255,0.9)', fontSize: 20, textAlign: 'center', maxWidth: 600, marginBottom: 32, lineHeight: 30 }
+  ,membershipSubtitle:{ color: 'rgba(255,255,255,0.9)', fontSize: 20, textAlign: 'center', maxWidth: 600, alignSelf: 'center', marginBottom: 32, lineHeight: 30 }
   ,rowCenter:{ flexDirection: 'row', justifyContent: 'center' }
   ,btnLg:{ backgroundColor: '#049756', paddingHorizontal: 32, paddingVertical: 16, borderRadius: 999, boxShadow: '0 10px 20px rgba(4,151,86,0.4)' }
   ,btnTextLg:{ color: '#fff', fontSize: 18, fontWeight: '800', letterSpacing: 1 }

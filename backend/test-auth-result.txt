@@ -1,0 +1,16 @@
+Test started at 2026-03-16T04:59:49.535Z
+
+--- 1. Testing Registration for testuser1773637189537@example.com ---
+Registration Status: 201
+Registration Success: Token received
+
+--- 2. Testing Login for testuser1773637189537@example.com ---
+Login Status: 200
+Login Success: Token received
+
+--- 3. Testing Get Profile (/me) ---
+Get Profile Status: 200
+User Email: testuser1773637189537@example.com
+User Role: user
+
+--- TEST COMPLETED SUCCESSFULLY ---
