@@ -1,5 +1,5 @@
 import express from 'express';
-import { getActivities, createActivity, updateActivity, enrollMember, getEnrollments } from '../controllers/activityController.js';
+import { getActivities, createActivity, updateActivity, deleteActivitySoft, enrollMember, getEnrollments } from '../controllers/activityController.js';
 import { requireAuth, requireAdmin } from '../middleware/auth.js';
 import multer from 'multer';
 
@@ -19,5 +19,6 @@ router.post('/:id/enroll', requireAuth, enrollMember);
 // Admin routes
 router.post('/', requireAuth, requireAdmin, upload.single('image'), createActivity);
 router.put('/:id', requireAuth, requireAdmin, upload.single('image'), updateActivity);
+router.delete('/:id', requireAuth, requireAdmin, deleteActivitySoft);
 
 export default router;

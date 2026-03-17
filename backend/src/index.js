@@ -148,13 +148,6 @@ app.get('/api/kpi', async (req, res) => {
   }
 });
 
-import { getActivities, createActivity, updateActivity, deleteActivitySoft } from './controllers/activityController.js';
-
-app.get('/api/activities', getActivities);
-app.post('/api/activities', requireAuth, requireAdmin, upload.single('image'), createActivity);
-app.put('/api/activities/:id', requireAuth, requireAdmin, upload.single('image'), updateActivity);
-app.delete('/api/activities/:id', requireAuth, requireAdmin, deleteActivitySoft);
-
 // --- News Endpoints ---
 
 app.get('/api/news', async (req, res) => {
