@@ -428,9 +428,13 @@ if (fs.existsSync(distDir)) {
   });
 }
 
-// Start Server
-const PORT = process.env.PORT || 3003;
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-  console.log(`Supabase Connected: ${!!supabase}`);
-});
+// Start Server (only if not running in Vercel serverless environment)
+if (process.env.NODE_ENV !== 'production' || process.env.RUN_LOCAL_SERVER === 'true') {
+  const PORT = process.env.PORT || 3003;
+  app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+    console.log(`Supabase Connected: ${!!supabase}`);
+  });
+}
+
+export default app;
