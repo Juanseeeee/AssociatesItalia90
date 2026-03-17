@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
 import BiometricSignature from './BiometricSignature';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3003/api';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3004/api';
 
 const MembershipForm = () => {
   const navigate = useNavigate();

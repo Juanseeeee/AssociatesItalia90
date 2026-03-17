@@ -13,8 +13,20 @@ import {
 import { toast } from 'sonner';
 import Modal from '../components/Modal';
 import { compressImage } from '../../utils/imageUtils';
+import { useFormWithScroll } from '../../hooks/useFormWithScroll';
 
-const API = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+const API = import.meta.env.VITE_API_URL || 'http://localhost:3003/api';
+
+const validateNews = (values) => {
+  const errors = {};
+  if (!values.title || values.title.length < 5) {
+    errors.title = 'El título debe tener al menos 5 caracteres';
+  }
+  if (!values.content || values.content.length < 20) {
+    errors.content = 'El contenido es demasiado corto (mínimo 20 caracteres)';
+  }
+  return errors;
+};
 
 const News = () => {
   const [news, setNews] = useState([]);
@@ -23,12 +35,32 @@ const News = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingNews, setEditingNews] = useState(null);
   
-  const [formData, setFormData] = useState({
+  const {
+    formData,
+    errors,
+    handleChange,
+    setFieldValue,
+    handleSubmit: handleFormSubmit,
+    resetForm,
+    formRef
+  } = useFormWithScroll({
     title: '',
     content: '',
     image: null,
     previewUrl: null
-  });
+  }, validateNews);
+
+  // Persist draft for new news
+  useEffect(() => {
+    if (!editingNews && isModalOpen) {
+      const draft = {
+        title: formData.title,
+        content: formData.content,
+        // We cannot persist file objects in localStorage, only text
+      };
+      localStorage.setItem('news_draft', JSON.stringify(draft));
+    }
+  }, [formData, editingNews, isModalOpen]);
 
   useEffect(() => {
     fetchNews();
@@ -51,7 +83,7 @@ const News = () => {
   const handleOpenModal = (item = null) => {
     if (item) {
       setEditingNews(item);
-      setFormData({
+      resetForm({
         title: item.title,
         content: item.content,
         image: null,
@@ -59,14 +91,35 @@ const News = () => {
       });
     } else {
       setEditingNews(null);
-      setFormData({
-        title: '',
-        content: '',
-        image: null,
-        previewUrl: null
-      });
+      // Try to load draft
+      const savedDraft = localStorage.getItem('news_draft');
+      if (savedDraft) {
+        try {
+          const parsed = JSON.parse(savedDraft);
+          resetForm({
+            ...parsed,
+            image: null,
+            previewUrl: null
+          });
+        } catch (e) {
+          resetForm({ title: '', content: '', image: null, previewUrl: null });
+        }
+      } else {
+        resetForm({
+          title: '',
+          content: '',
+          image: null,
+          previewUrl: null
+        });
+      }
     }
     setIsModalOpen(true);
+  };
+
+  const handleDiscardDraft = () => {
+    localStorage.removeItem('news_draft');
+    resetForm({ title: '', content: '', image: null, previewUrl: null });
+    toast.info('Borrador descartado');
   };
 
   const handleImageChange = async (e) => {
@@ -74,11 +127,8 @@ const News = () => {
     if (file) {
       try {
           const { file: compressedFile, preview } = await compressImage(file, 0.8, 1200);
-          setFormData({
-            ...formData,
-            image: compressedFile,
-            previewUrl: preview
-          });
+          setFieldValue('image', compressedFile);
+          setFieldValue('previewUrl', preview);
       } catch (error) {
           toast.error("Error al procesar la imagen");
       }
@@ -106,25 +156,14 @@ const News = () => {
     }
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    
-    if (formData.title.length < 5) {
-        toast.error('El título debe tener al menos 5 caracteres');
-        return;
-    }
-    if (formData.content.length < 20) {
-        toast.error('El contenido es demasiado corto');
-        return;
-    }
-
+  const onSubmit = async (values) => {
     const token = localStorage.getItem('admin_token');
     
     const data = new FormData();
-    data.append('title', formData.title);
-    data.append('content', formData.content);
-    if (formData.image) {
-      data.append('image', formData.image);
+    data.append('title', values.title);
+    data.append('content', values.content);
+    if (values.image) {
+      data.append('image', values.image);
     }
 
     const toastId = toast.loading(editingNews ? 'Actualizando...' : 'Publicando...');
@@ -269,45 +308,21 @@ const News = () => {
         </div>
       )}
 
-      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingNews ? "Editar Noticia" : "Nueva Noticia"}>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="label">Título</label>
-            <input 
-              type="text" 
-              className="input w-full" 
-              value={formData.title}
-              onChange={e => setFormData({...formData, title: e.target.value})}
-              required
-            />
-          </div>
-          
-          <div>
-            <label className="label">Contenido</label>
-            <textarea 
-              className="input w-full h-40 resize-none" 
-              value={formData.content}
-              onChange={e => setFormData({...formData, content: e.target.value})}
-              required
-            />
-          </div>
-
-          <div>
-            <label className="label">Imagen</label>
-            <input 
-              type="file" 
-              accept="image/*"
-              className="input w-full input-file" 
-              onChange={handleImageChange}
-            />
-            {formData.previewUrl && (
-              <div className="img-preview h-48">
-                <img src={formData.previewUrl} alt="Preview" className="w-full h-full object-contain" />
-              </div>
+      <Modal 
+        isOpen={isModalOpen} 
+        onClose={() => setIsModalOpen(false)} 
+        title={editingNews ? "Editar Noticia" : "Nueva Noticia"}
+        footer={
+          <>
+            {!editingNews && (formData.title || formData.content) && (
+              <button 
+                type="button" 
+                onClick={handleDiscardDraft}
+                className="btn btn-ghost text-red-500 hover:bg-red-50 mr-auto"
+              >
+                Descartar borrador
+              </button>
             )}
-          </div>
-          
-          <div className="modal-footer">
             <button 
               type="button" 
               onClick={() => setIsModalOpen(false)}
@@ -316,11 +331,74 @@ const News = () => {
               Cancelar
             </button>
             <button 
-              type="submit" 
+              type="submit"
+              form="news-form"
               className="btn btn-primary"
             >
               {editingNews ? 'Guardar Cambios' : 'Publicar Noticia'}
             </button>
+          </>
+        }
+      >
+        <div className="mb-4">
+          <div className="flex justify-between text-xs text-[var(--text-muted)] mb-1">
+            <span>Progreso</span>
+            <span>{Math.round((Object.values({t: formData.title, c: formData.content}).filter(Boolean).length / 2) * 100)}%</span>
+          </div>
+          <div className="h-1 w-full bg-[var(--border)] rounded-full overflow-hidden">
+            <div 
+              className="h-full bg-[var(--primary)] transition-all duration-300"
+              style={{ width: `${(Object.values({t: formData.title, c: formData.content}).filter(Boolean).length / 2) * 100}%` }}
+            ></div>
+          </div>
+        </div>
+
+        <form id="news-form" ref={formRef} onSubmit={handleFormSubmit(onSubmit)} className="space-y-4">
+          <div>
+            <label htmlFor="title" className="label">Título <span className="text-red-500">*</span></label>
+            <input 
+              id="title"
+              type="text" 
+              name="title"
+              className={`input w-full ${errors.title ? 'border-red-500 focus:ring-red-500' : ''}`}
+              value={formData.title}
+              onChange={handleChange}
+              placeholder="Título de la noticia"
+              aria-invalid={!!errors.title}
+              aria-describedby={errors.title ? "title-error" : undefined}
+            />
+            {errors.title && <p id="title-error" className="text-red-500 text-xs mt-1" role="alert">{errors.title}</p>}
+          </div>
+          
+          <div>
+            <label htmlFor="content" className="label">Contenido <span className="text-red-500">*</span></label>
+            <textarea 
+              id="content"
+              name="content"
+              className={`input w-full h-40 resize-none ${errors.content ? 'border-red-500 focus:ring-red-500' : ''}`}
+              value={formData.content}
+              onChange={handleChange}
+              placeholder="Escribe el contenido de la noticia..."
+              aria-invalid={!!errors.content}
+              aria-describedby={errors.content ? "content-error" : undefined}
+            />
+            {errors.content && <p id="content-error" className="text-red-500 text-xs mt-1" role="alert">{errors.content}</p>}
+          </div>
+
+          <div>
+            <label htmlFor="image" className="label">Imagen (Opcional)</label>
+            <input 
+              id="image"
+              type="file" 
+              accept="image/*"
+              className="input w-full input-file" 
+              onChange={handleImageChange}
+            />
+            {formData.previewUrl && (
+              <div className="img-preview h-48 mt-2">
+                <img src={formData.previewUrl} alt="Preview" className="w-full h-full object-contain rounded-md border border-[var(--border)]" />
+              </div>
+            )}
           </div>
         </form>
       </Modal>

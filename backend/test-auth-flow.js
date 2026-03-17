@@ -13,7 +13,7 @@ if (!fs.existsSync(dummyImagePath)) {
     fs.writeFileSync(dummyImagePath, Buffer.from('dummy image content'));
 }
 
-const API_URL = 'http://localhost:3001/api';
+const API_URL = 'http://localhost:3003/api';
 const LOG_FILE = 'test-auth-result.txt';
 
 function log(message) {
@@ -36,7 +36,7 @@ async function runTest() {
         form.append('password', password);
         form.append('firstName', 'Test');
         form.append('lastName', 'User');
-        form.append('dni', `DNI${Date.now()}`);
+        form.append('dni', Date.now().toString().slice(-8));
         form.append('phone', '1234567890');
         form.append('role', 'member');
         form.append('address', 'Calle Falsa 123');

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, ImageBackground, Image, Platform, Dimensions } from 'react-native';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 const { height } = Dimensions.get('window');
@@ -12,6 +12,7 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -24,7 +25,8 @@ const Login = () => {
 
     try {
       await login(email, password);
-      navigate('/dashboard');
+      const returnTo = location.state?.returnTo || '/dashboard';
+      navigate(returnTo);
     } catch (err) {
       setError(err.message || 'Error al iniciar sesión');
     } finally {

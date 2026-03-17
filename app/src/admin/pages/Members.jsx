@@ -17,18 +17,21 @@ import {
 import { toast } from 'sonner';
 import Modal from '../components/Modal';
 
-const API = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+const API = import.meta.env.VITE_API_URL || 'http://localhost:3003/api';
 
 const Members = () => {
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('');
   const [status, setStatus] = useState('all');
+  const [paymentStatus, setPaymentStatus] = useState('all');
   const [page, setPage] = useState(1);
   const itemsPerPage = 10;
   
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [editingMember, setEditingMember] = useState(null);
+  const [selectedMemberForPayment, setSelectedMemberForPayment] = useState(null);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -36,6 +39,11 @@ const Members = () => {
     dni: '',
     status: 'active',
     plan: 'standard'
+  });
+  const [paymentFormData, setPaymentFormData] = useState({
+    amount: 12000,
+    method: 'cash',
+    concept: 'Cuota Social'
   });
 
   useEffect(() => {
@@ -72,10 +80,11 @@ const Members = () => {
       );
       
       const matchesStatus = status === 'all' || member.status === status;
+      const matchesPayment = paymentStatus === 'all' || member.payment_status === paymentStatus;
       
-      return matchesSearch && matchesStatus;
+      return matchesSearch && matchesStatus && matchesPayment;
     });
-  }, [members, filter, status]);
+  }, [members, filter, status, paymentStatus]);
 
   const handleExportCSV = () => {
     if (filteredMembers.length === 0) {
@@ -83,7 +92,7 @@ const Members = () => {
       return;
     }
 
-    const headers = ['ID', 'Nombre', 'Email', 'Teléfono', 'DNI', 'Estado', 'Tipo', 'Último Pago'];
+    const headers = ['ID', 'Nombre', 'Email', 'Teléfono', 'DNI', 'Estado', 'Pago', 'Tipo', 'Último Pago'];
     const csvContent = [
       headers.join(','),
       ...filteredMembers.map(m => [
@@ -93,6 +102,7 @@ const Members = () => {
         m.phone || '',
         m.dni || '',
         m.status,
+        m.payment_status || 'unknown',
         m.memberType || 'Standard',
         m.last_payment_date || ''
       ].join(','))
@@ -132,6 +142,46 @@ const Members = () => {
       });
     }
     setIsModalOpen(true);
+  };
+
+  const handleOpenPaymentModal = (member) => {
+    setSelectedMemberForPayment(member);
+    setPaymentFormData({
+      amount: 12000,
+      method: 'cash',
+      concept: 'Cuota Social'
+    });
+    setIsPaymentModalOpen(true);
+  };
+
+  const handleManualPayment = async (e) => {
+    e.preventDefault();
+    if (!selectedMemberForPayment) return;
+
+    const token = localStorage.getItem('admin_token');
+    const toastId = toast.loading('Procesando pago...');
+
+    try {
+      const res = await fetch(`${API}/members/${selectedMemberForPayment.id}/pay`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(paymentFormData)
+      });
+
+      if (res.ok) {
+        toast.success('Pago registrado correctamente', { id: toastId });
+        setIsPaymentModalOpen(false);
+        fetchMembers();
+      } else {
+        throw new Error('Error al registrar pago');
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error('Error al registrar pago', { id: toastId });
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -256,6 +306,19 @@ const Members = () => {
     }
   };
 
+  const getPaymentBadge = (status) => {
+    switch (status) {
+      case 'completed':
+        return <span className="badge badge-success text-xs">Pago OK</span>;
+      case 'pending':
+        return <span className="badge badge-warning text-xs">Pendiente</span>;
+      case 'failure':
+        return <span className="badge badge-error text-xs">Fallido</span>;
+      default:
+        return <span className="badge badge-neutral text-xs">-</span>;
+    }
+  };
+
   const SkeletonRow = () => (
     <tr className="animate-pulse">
       <td className="p-4"><div className="h-4 w-4 bg-[var(--border)] rounded"></div></td>
@@ -311,9 +374,20 @@ const Members = () => {
               onChange={(e) => setStatus(e.target.value)}
             >
               <option value="all">Todos los estados</option>
-              <option value="active">Al día</option>
-              <option value="debt">Con Deuda</option>
+              <option value="active">Activo</option>
               <option value="inactive">Inactivo</option>
+              <option value="pending_payment">Pendiente Pago</option>
+            </select>
+            
+            <select 
+              className="input w-full md:w-48 min-h-[48px]"
+              value={paymentStatus}
+              onChange={(e) => setPaymentStatus(e.target.value)}
+            >
+              <option value="all">Todos los pagos</option>
+              <option value="completed">Completado</option>
+              <option value="pending">Pendiente</option>
+              <option value="failure">Fallido</option>
             </select>
           </div>
         </div>
@@ -325,6 +399,7 @@ const Members = () => {
                 <th className="hidden lg:table-cell">ID</th>
                 <th>Socio</th>
                 <th>Estado</th>
+                <th>Pago</th>
                 <th className="hidden sm:table-cell">Contacto</th>
                 <th className="hidden md:table-cell">Plan</th>
                 <th className="text-right">Acciones</th>
@@ -364,6 +439,7 @@ const Members = () => {
                       </div>
                     </td>
                     <td>{getStatusBadge(member.status)}</td>
+                    <td>{getPaymentBadge(member.payment_status)}</td>
                     <td className="hidden sm:table-cell">
                       <div className="flex flex-col gap-1">
                         <div className="flex items-center gap-1 text-sm text-[var(--text-muted)]">
@@ -383,6 +459,13 @@ const Members = () => {
                     </td>
                     <td className="text-right">
                       <div className="flex items-center justify-end gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-200">
+                        <button 
+                          className="btn-icon btn-icon-success"
+                          onClick={() => handleOpenPaymentModal(member)}
+                          title="Registrar Pago"
+                        >
+                          <span className="text-xs font-bold">$</span>
+                        </button>
                         <button 
                           className="btn-icon btn-icon-primary"
                           onClick={() => handleNotifyDebt(member)}
@@ -518,6 +601,57 @@ const Members = () => {
             <button type="button" className="btn btn-ghost" onClick={() => setIsModalOpen(false)}>Cancelar</button>
             <button type="submit" className="btn btn-primary">
               {editingMember ? 'Actualizar' : 'Registrar'}
+            </button>
+          </div>
+        </form>
+      </Modal>
+      <Modal isOpen={isPaymentModalOpen} onClose={() => setIsPaymentModalOpen(false)} title="Registrar Pago">
+        <form onSubmit={handleManualPayment} className="space-y-4">
+          <div className="bg-gray-50 p-4 rounded-lg mb-4">
+            <p className="text-sm text-gray-600">Registrando pago para:</p>
+            <p className="font-bold text-lg">{selectedMemberForPayment?.name}</p>
+            <p className="text-sm text-gray-500">{selectedMemberForPayment?.email}</p>
+          </div>
+
+          <div>
+            <label className="label">Monto ($)</label>
+            <input 
+              type="number" 
+              className="input w-full" 
+              value={paymentFormData.amount}
+              onChange={e => setPaymentFormData({...paymentFormData, amount: Number(e.target.value)})}
+              required
+            />
+          </div>
+
+          <div>
+            <label className="label">Concepto</label>
+            <input 
+              type="text" 
+              className="input w-full" 
+              value={paymentFormData.concept}
+              onChange={e => setPaymentFormData({...paymentFormData, concept: e.target.value})}
+              required
+            />
+          </div>
+
+          <div>
+            <label className="label">Método de Pago</label>
+            <select 
+              className="input w-full"
+              value={paymentFormData.method}
+              onChange={e => setPaymentFormData({...paymentFormData, method: e.target.value})}
+            >
+              <option value="cash">Efectivo</option>
+              <option value="transfer">Transferencia</option>
+              <option value="pos">Posnet (Tarjeta)</option>
+            </select>
+          </div>
+
+          <div className="modal-footer">
+            <button type="button" className="btn btn-ghost" onClick={() => setIsPaymentModalOpen(false)}>Cancelar</button>
+            <button type="submit" className="btn btn-success text-white">
+              Confirmar Pago
             </button>
           </div>
         </form>

@@ -1,6 +1,6 @@
 import fetch from 'node-fetch';
 
-const API_URL = 'http://localhost:3001/api';
+const API_URL = 'http://localhost:3003/api';
 
 async function testSubscriptionFlow() {
     console.log('🚀 Iniciando prueba de flujo de suscripción...');

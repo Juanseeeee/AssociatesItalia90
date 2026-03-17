@@ -1,10 +1,10 @@
 const http = require('http');
 const fs = require('fs');
 
-console.log('Testing backend health on port 3001...');
+console.log('Testing backend health on port 3003...');
 const logFile = 'health_result.txt';
 
-const req = http.get('http://localhost:3001/', (res) => {
+const req = http.get('http://localhost:3003/', (res) => {
   let data = '';
   res.on('data', (chunk) => {
     data += chunk;

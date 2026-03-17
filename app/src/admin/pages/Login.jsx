@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { ShieldCheck, Lock, User } from 'lucide-react';
 
-const API = 'http://localhost:3001/api';
+const API = import.meta.env.VITE_API_URL || 'http://localhost:3003/api';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -17,7 +17,7 @@ const Login = () => {
     setLoading(true);
 
     try {
-      const res = await fetch(`${API}/admin/login`, {
+      const res = await fetch(`${API}/auth/admin-login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password })
@@ -40,25 +40,25 @@ const Login = () => {
   };
 
   return (
-    <div className="admin-wrapper min-h-screen flex items-center justify-center p-4" data-theme={theme}>
-      <div className="bg-[var(--surface)] p-8 rounded-2xl shadow-xl w-full max-w-md border border-[var(--border)]">
+    <div className="admin-login-container" data-theme={theme}>
+      <div className="admin-login-card">
         <div className="text-center mb-8">
-          <div className="bg-[var(--primary)] w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-blue-600/20">
+          <div className="login-icon-wrapper">
             <ShieldCheck size={32} className="text-[var(--primary-foreground)]" />
           </div>
           <h1 className="text-2xl font-bold text-[var(--text)]">Admin Panel</h1>
           <p className="text-[var(--text-muted)]">Ingresa tus credenciales para continuar</p>
         </div>
 
-        <form onSubmit={handleLogin} className="space-y-6">
-          <div>
+        <form onSubmit={handleLogin} className="login-form">
+          <div className="form-group">
             <label className="label">Email</label>
-            <div className="relative">
-              <User className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" size={18} />
+            <div className="input-wrapper">
+              <User className="input-icon" size={18} />
               <input 
                 type="email" 
                 required
-                className="input pl-10 w-full min-h-[48px]" 
+                className="input input-with-icon" 
                 placeholder="admin@italia90.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -66,14 +66,14 @@ const Login = () => {
             </div>
           </div>
 
-          <div>
+          <div className="form-group">
             <label className="label">Contraseña</label>
-            <div className="relative">
-              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" size={18} />
+            <div className="input-wrapper">
+              <Lock className="input-icon" size={18} />
               <input 
                 type="password" 
                 required
-                className="input pl-10 w-full min-h-[48px]" 
+                className="input input-with-icon" 
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -84,13 +84,13 @@ const Login = () => {
           <button 
             type="submit" 
             disabled={loading}
-            className="btn btn-primary w-full justify-center py-3 text-base min-h-[48px]"
+            className="btn btn-primary btn-block btn-lg"
           >
             {loading ? 'Ingresando...' : 'Iniciar Sesión'}
           </button>
         </form>
         
-        <div className="mt-6 text-center text-xs text-[var(--text-muted)]">
+        <div className="login-footer">
           &copy; {new Date().getFullYear()} Club Social y Deportivo Italia 90
         </div>
       </div>

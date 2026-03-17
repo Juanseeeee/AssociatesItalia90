@@ -1,3 +1,4 @@
+import { createClient } from '@supabase/supabase-js';
 import supabase from '../supabase.js';
 import jwt from 'jsonwebtoken';
 import { nanoid } from 'nanoid';
@@ -5,6 +6,16 @@ import sharp from 'sharp';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+
+// Helper to get a disposable auth client
+const getAuthClient = () => {
+    return createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, {
+        auth: {
+            autoRefreshToken: false,
+            persistSession: false
+        }
+    });
+};
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -22,13 +33,27 @@ export const checkDuplicate = async (req, res) => {
   
   try {
     if (email) {
-      const { data, error } = await supabase
+      // 1. Check in memberships table
+      const { data: memberData } = await supabase
         .from('memberships')
         .select('id')
         .eq('email', email)
         .maybeSingle();
       
-      if (data) return res.json({ exists: true, field: 'email', message: 'El correo electrónico ya está registrado.' });
+      if (memberData) return res.json({ exists: true, field: 'email', message: 'El correo electrónico ya está registrado.' });
+
+      // 2. Check in Supabase Auth (via RPC to avoid admin API limitations)
+      // Requires migration: 12_check_auth_user_rpc.sql
+      const { data: authExists, error: rpcError } = await supabase
+        .rpc('check_auth_user_exists', { email_check: email });
+
+      if (!rpcError && authExists) {
+        return res.json({ 
+          exists: true, 
+          field: 'email', 
+          message: 'El correo electrónico ya está registrado en el sistema de autenticación.' 
+        });
+      }
     }
     
     if (dni) {
@@ -115,8 +140,9 @@ export const register = async (req, res) => {
 
     // 4. Create Auth User in Supabase
     // Usamos admin.createUser para asegurar creación backend-side sin restricciones de cliente (captcha, confirmación)
+    const authClient = getAuthClient();
     console.log(`Attempting to create user with email: ${email}`);
-    const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+    const { data: authData, error: authError } = await authClient.auth.admin.createUser({
       email,
       password,
       email_confirm: true, // Auto-confirmar email para permitir login inmediato
@@ -195,11 +221,12 @@ export const register = async (req, res) => {
 
     // 6. Record Initial Payment if applicable
     if (paymentSuccess) {
+      // NOTE: Checking schema cache issue with 'date' vs 'payment_date' or 'created_at' in payments table
       const { error: paymentError } = await supabase.from('payments').insert([{
           id: nanoid(),
           member_id: userId,
           amount: 5000,
-          date: new Date().toISOString(),
+          // date: new Date().toISOString(), // Commenting out 'date' to test if it's the issue
           concept: 'Cuota Social Inicial',
           method: 'credit_card',
           status: 'aprobado'
@@ -244,10 +271,58 @@ export const login = async (req, res) => {
   const { email, password } = req.body;
   
   try {
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    const authClient = getAuthClient();
+    const { data, error } = await authClient.auth.signInWithPassword({ email, password });
     if (error) return res.status(401).json({ error: 'Credenciales inválidas' });
     
     const userId = data.user.id;
+    console.log('Admin Login Attempt - User ID:', userId);
+    
+    // Fetch profile
+    const { data: member, error: memberError } = await supabase
+        .from('memberships')
+        .select('*')
+        .eq('id', userId)
+        .single();
+
+    console.log('Admin Login - Member Fetch Result:', member);
+    if (memberError) console.error('Admin Login - Member Fetch Error:', memberError);
+
+    if (memberError && memberError.code !== 'PGRST116') {
+        console.error('Login profile fetch error:', memberError);
+    } else if (memberError && memberError.code === 'PGRST116') {
+        console.warn('Admin Login - Member not found via ID lookup. Listing all memberships to debug...');
+        const { data: allMembers, error: allError } = await supabase.from('memberships').select('id, email, role').limit(10);
+        console.log('Admin Login - All Memberships (first 10):', allMembers);
+        if (allError) console.error('Admin Login - List Error:', allError);
+    }
+
+    const userProfile = member || {
+        id: userId,
+        email: data.user.email,
+        role: 'user',
+        first_name: data.user.user_metadata?.firstName,
+        last_name: data.user.user_metadata?.lastName
+    };
+
+    const token = jwt.sign({ id: userId, email: userProfile.email, role: userProfile.role || 'user' }, JWT_SECRET, { expiresIn: '24h' });
+    return res.json({ user: userProfile, token });
+  } catch (e) {
+      console.error('Login error:', e);
+      res.status(500).json({ error: 'Error interno al iniciar sesión' });
+  }
+};
+
+export const adminLogin = async (req, res) => {
+  const { email, password } = req.body;
+  
+  try {
+    const authClient = getAuthClient();
+    const { data, error } = await authClient.auth.signInWithPassword({ email, password });
+    if (error) return res.status(401).json({ error: 'Credenciales inválidas' });
+    
+    const userId = data.user.id;
+    console.log('Admin Login Attempt - User ID:', userId);
     
     // Fetch profile
     const { data: member, error: memberError } = await supabase
@@ -263,30 +338,50 @@ export const login = async (req, res) => {
     const userProfile = member || {
         id: userId,
         email: data.user.email,
-        role: 'user',
-        firstName: data.user.user_metadata?.firstName,
-        lastName: data.user.user_metadata?.lastName
+        role: 'user', // Default to user if not found in memberships
+        first_name: data.user.user_metadata?.firstName,
+        last_name: data.user.user_metadata?.lastName
     };
 
-    const token = jwt.sign({ id: userId, email: userProfile.email, role: 'user' }, JWT_SECRET, { expiresIn: '24h' });
+    if (userProfile.role !== 'admin') {
+        return res.status(403).json({ error: 'Acceso denegado: No tienes permisos de administrador' });
+    }
+
+    const token = jwt.sign({ id: userId, email: userProfile.email, role: userProfile.role }, JWT_SECRET, { expiresIn: '24h' });
     return res.json({ user: userProfile, token });
   } catch (e) {
-      console.error('Login error:', e);
+      console.error('Admin Login error:', e);
       res.status(500).json({ error: 'Error interno al iniciar sesión' });
   }
 };
 
 export const getMe = async (req, res) => {
     try {
+        console.log(`getMe called for user id: ${req.user.id}`);
         const { data: member, error } = await supabase
             .from('memberships')
             .select('*')
             .eq('id', req.user.id)
             .single();
         
+        if (error && error.code !== 'PGRST116') {
+            console.error(`getMe supabase error for id ${req.user.id}:`, error);
+        }
+        
+        // If member doesn't exist in memberships table, we still return basic info from auth token
+        if (error && error.code === 'PGRST116') {
+            return res.json({
+                id: req.user.id,
+                email: req.user.email,
+                role: req.user.role || 'user',
+                status: 'pending_payment'
+            });
+        }
+        
         if (error || !member) return res.status(404).json({ error: 'Usuario no encontrado' });
         res.json(member);
     } catch (e) {
+        console.error('getMe exception:', e);
         res.status(500).json({ error: 'Error al obtener perfil' });
     }
 };

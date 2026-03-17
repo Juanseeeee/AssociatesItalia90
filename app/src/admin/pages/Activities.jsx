@@ -10,38 +10,90 @@ import {
   Edit, 
   Trash2, 
   Search,
-  Eye,
-  X
+  X,
+  AlertCircle
 } from 'lucide-react';
 import { toast } from 'sonner';
 import Modal from '../components/Modal';
 import { compressImage } from '../../utils/imageUtils';
+import { useFormWithScroll } from '../../hooks/useFormWithScroll';
 
-const API = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+const API = import.meta.env.VITE_API_URL || 'http://localhost:3003/api';
 
-const Activities = () => {
-  const [activities, setActivities] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState('');
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [enrollmentsModalOpen, setEnrollmentsModalOpen] = useState(false);
-  const [editingActivity, setEditingActivity] = useState(null);
-  const [selectedActivityEnrollments, setSelectedActivityEnrollments] = useState(null);
-  const [enrollments, setEnrollments] = useState([]);
-  const [loadingEnrollments, setLoadingEnrollments] = useState(false);
-  
-  // Form State
-  const [formData, setFormData] = useState({
-    title: '',
-    description: '',
-    date: '',
-    time: '',
-    location: '',
-    price: '',
-    quota: '',
-    image: null,
-    previewUrl: null
-  });
+const validateActivity = (values) => {
+  const errors = {};
+    if (!values.name) errors.name = 'El nombre es obligatorio';
+    if (values.is_recurring) {
+      if (!values.recurrence_days || values.recurrence_days.length === 0) {
+        errors.recurrence_days = 'Seleccione al menos un día';
+      }
+      if (!values.start_time) errors.start_time = 'Hora de inicio requerida';
+      if (!values.end_time) errors.end_time = 'Hora de fin requerida';
+    } else {
+      // Validaciones para actividad única (si aplica) o genérica
+      // Mantener date/time si no es recurrente, o hacerlos opcionales según lógica
+      // Para simplificar, si no es recurrente, pedimos date/time o schedule manual
+      if (!values.schedule && (!values.date || !values.time)) {
+         // errors.schedule = 'Defina un horario o fecha';
+      }
+    }
+    if (values.cost < 0) errors.cost = 'El costo no puede ser negativo';
+    if (values.slots && values.slots < 0) errors.slots = 'El cupo no puede ser negativo';
+    if (!values.description) errors.description = 'La descripción es obligatoria';
+    return errors;
+  };
+
+  const Activities = () => {
+    const [activities, setActivities] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [filter, setFilter] = useState('');
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [enrollmentsModalOpen, setEnrollmentsModalOpen] = useState(false);
+    const [editingActivity, setEditingActivity] = useState(null);
+    const [selectedActivityEnrollments, setSelectedActivityEnrollments] = useState(null);
+    const [enrollments, setEnrollments] = useState([]);
+    const [loadingEnrollments, setLoadingEnrollments] = useState(false);
+    
+    const {
+      formData,
+      errors,
+      handleChange,
+      setFieldValue,
+      handleSubmit: handleFormSubmit,
+      resetForm,
+      formRef
+    } = useFormWithScroll({
+      name: '',
+      description: '',
+      date: '', // Mantenemos para compatibilidad visual o input manual
+      time: '',
+      schedule: '',
+      location: '',
+      cost: '',
+      slots: '',
+      image: null,
+      previewUrl: null,
+      is_recurring: false,
+      recurrence_days: [],
+      start_time: '',
+      end_time: ''
+    }, validateActivity);
+
+    // Persist draft for new activity
+    useEffect(() => {
+      if (!editingActivity && isModalOpen) {
+        const draft = {
+          name: formData.name,
+          description: formData.description,
+          schedule: formData.schedule,
+          cost: formData.cost,
+          slots: formData.slots,
+          is_recurring: formData.is_recurring,
+          recurrence_days: formData.recurrence_days
+        };
+        localStorage.setItem('activity_draft', JSON.stringify(draft));
+      }
+    }, [formData, editingActivity, isModalOpen]);
 
   useEffect(() => {
     fetchActivities();
@@ -90,32 +142,58 @@ const Activities = () => {
   const handleOpenModal = (activity = null) => {
     if (activity) {
       setEditingActivity(activity);
-      setFormData({
-        title: activity.title,
+      resetForm({
+        name: activity.name,
         description: activity.description,
-        date: activity.date ? activity.date.split('T')[0] : '',
-        time: activity.time || '',
-        location: activity.location || '',
-        price: activity.price || '',
-        quota: activity.quota || '',
+        schedule: activity.schedule || '',
+        // Try to parse schedule if simple, otherwise leave empty or show string
+        date: '', 
+        time: '',
+        location: activity.location || '', // Backend might not store this yet, but we keep it in form
+        cost: activity.cost || '',
+        slots: activity.slots || '',
         image: null,
-        previewUrl: activity.image_url ? (activity.image_url.startsWith('http') ? activity.image_url : `${API.replace('/api', '')}${activity.image_url}`) : null
+        previewUrl: activity.image ? (activity.image.startsWith('http') ? activity.image : `${API.replace('/api', '')}${activity.image}`) : null,
+        is_recurring: activity.is_recurring || false,
+        recurrence_days: activity.recurrence_days || [],
+        start_time: activity.start_time || '',
+        end_time: activity.end_time || ''
       });
     } else {
       setEditingActivity(null);
-      setFormData({
-        title: '',
-        description: '',
-        date: '',
-        time: '',
-        location: '',
-        price: '',
-        quota: '',
-        image: null,
-        previewUrl: null
-      });
+      // Try to load draft
+      const savedDraft = localStorage.getItem('activity_draft');
+      if (savedDraft) {
+        try {
+          const parsed = JSON.parse(savedDraft);
+          resetForm({
+            ...parsed,
+            image: null,
+            previewUrl: null
+          });
+        } catch (e) {
+          resetForm({
+            name: '', description: '', date: '', time: '', schedule: '', location: '', cost: '', slots: '', 
+            image: null, previewUrl: null, is_recurring: false, recurrence_days: [], start_time: '', end_time: ''
+          });
+        }
+      } else {
+        resetForm({
+          name: '', description: '', date: '', time: '', schedule: '', location: '', cost: '', slots: '', 
+          image: null, previewUrl: null, is_recurring: false, recurrence_days: [], start_time: '', end_time: ''
+        });
+      }
     }
     setIsModalOpen(true);
+  };
+
+  const handleDiscardDraft = () => {
+    localStorage.removeItem('activity_draft');
+    resetForm({
+      name: '', description: '', date: '', time: '', schedule: '', location: '', cost: '', slots: '', 
+      image: null, previewUrl: null, is_recurring: false, recurrence_days: [], start_time: '', end_time: ''
+    });
+    toast.info('Borrador descartado');
   };
 
   const handleViewEnrollments = (activity) => {
@@ -129,11 +207,8 @@ const Activities = () => {
     if (file) {
       try {
           const { file: compressedFile, preview } = await compressImage(file, 0.8, 1200);
-          setFormData({
-            ...formData,
-            image: compressedFile,
-            previewUrl: preview
-          });
+          setFieldValue('image', compressedFile);
+          setFieldValue('previewUrl', preview);
       } catch (error) {
           toast.error("Error al procesar la imagen");
       }
@@ -163,31 +238,31 @@ const Activities = () => {
     }
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    
-    // Validaciones
-    if (Number(formData.price) < 0) {
-        toast.error('El precio no puede ser negativo');
-        return;
-    }
-    if (formData.quota && Number(formData.quota) < 0) {
-        toast.error('El cupo no puede ser negativo');
-        return;
-    }
-    
+  const onSubmit = async (values) => {
     const token = localStorage.getItem('admin_token');
     
     const data = new FormData();
-    data.append('title', formData.title);
-    data.append('description', formData.description);
-    data.append('date', formData.date);
-    data.append('time', formData.time);
-    data.append('location', formData.location);
-    data.append('price', formData.price);
-    data.append('quota', formData.quota);
-    if (formData.image) {
-      data.append('image', formData.image);
+    data.append('name', values.name);
+    data.append('description', values.description);
+    // data.append('location', values.location); // Backend needs to support this or append to description
+    
+    if (values.is_recurring) {
+      data.append('is_recurring', 'true');
+      values.recurrence_days.forEach(day => data.append('recurrence_days', day));
+      data.append('start_time', values.start_time);
+      data.append('end_time', values.end_time);
+        // Backend auto-generates schedule string
+    } else {
+        // Construct schedule from date/time or manual input
+        const scheduleStr = values.schedule || `${values.date} ${values.time}`;
+        data.append('schedule', scheduleStr);
+    }
+
+    data.append('cost', values.cost);
+    data.append('slots', values.slots);
+    
+    if (values.image) {
+      data.append('image', values.image);
     }
 
     const toastId = toast.loading(editingActivity ? 'Actualizando...' : 'Creando...');
@@ -199,10 +274,30 @@ const Activities = () => {
       
       const method = editingActivity ? 'PUT' : 'POST';
 
+      // Note: FormData handles array values for recurrence_days automatically with correct server parser
+      // Or we might need to JSON stringify it if backend expects JSON body.
+      // activityController uses multer which handles FormData.
+      // But standard multer might need 'recurrence_days' as multiple fields.
+      // Let's verify how we append array. 
+      // If we use JSON body it's easier, but we have image file.
+      // So we use FormData.
+      // Check activityController: it gets req.body.
+      // Express urlencoded/json/multer puts fields in req.body.
+      // Arrays in FormData usually come as `key` appearing multiple times or `key[]`.
+      // Let's send `recurrence_days` as individual items.
+
+      // However, req.body.recurrence_days might be a single string if only 1 day is selected.
+      // We should handle that in backend or here.
+      // Ideally, send as JSON string for safety if mixed with file.
+      // data.append('recurrence_days', JSON.stringify(values.recurrence_days)); 
+      // But backend expects array.
+      // Let's rely on standard FormData behavior (multiple appends).
+
       const res = await fetch(url, {
         method,
         headers: {
           'Authorization': `Bearer ${token}`
+          // No Content-Type for FormData, browser sets it with boundary
         },
         body: data
       });
@@ -212,15 +307,16 @@ const Activities = () => {
         setIsModalOpen(false);
         fetchActivities();
       } else {
-        throw new Error('Error en la operación');
+        const err = await res.json();
+        throw new Error(err.error || 'Error en la operación');
       }
     } catch (error) {
-      toast.error('Error al guardar la actividad', { id: toastId });
+      toast.error(error.message || 'Error al guardar la actividad', { id: toastId });
     }
   };
 
   const filteredActivities = activities.filter(a => 
-    a.title.toLowerCase().includes(filter.toLowerCase())
+    a.name?.toLowerCase().includes(filter.toLowerCase())
   );
 
   const SkeletonCard = () => (
@@ -236,6 +332,25 @@ const Activities = () => {
       </div>
     </div>
   );
+
+  const daysOptions = [
+    { value: 'Monday', label: 'Lunes' },
+    { value: 'Tuesday', label: 'Martes' },
+    { value: 'Wednesday', label: 'Miércoles' },
+    { value: 'Thursday', label: 'Jueves' },
+    { value: 'Friday', label: 'Viernes' },
+    { value: 'Saturday', label: 'Sábado' },
+    { value: 'Sunday', label: 'Domingo' }
+  ];
+
+  const toggleDay = (day) => {
+    const current = formData.recurrence_days || [];
+    if (current.includes(day)) {
+      setFieldValue('recurrence_days', current.filter(d => d !== day));
+    } else {
+      setFieldValue('recurrence_days', [...current, day]);
+    }
+  };
 
   return (
     <div className="admin-container space-y-6 animate-fade-in">
@@ -269,9 +384,6 @@ const Activities = () => {
             <SkeletonCard />
             <SkeletonCard />
             <SkeletonCard />
-            <SkeletonCard />
-            <SkeletonCard />
-            <SkeletonCard />
           </>
         ) : filteredActivities.length === 0 ? (
           <div className="col-span-full py-16 text-center bg-[var(--surface)] rounded-xl border border-[var(--border)] border-dashed animate-fade-in">
@@ -289,10 +401,10 @@ const Activities = () => {
               style={{ animationDelay: `${index * 50}ms` }}
             >
           <div className="relative h-48 overflow-hidden group">
-            {activity.image_url || formData.previewUrl ? (
+            {activity.image || formData.previewUrl ? (
               <img 
-                src={activity.image_url?.startsWith('http') ? activity.image_url : `${API.replace('/api', '')}${activity.image_url}`} 
-                alt={activity.title} 
+                src={activity.image?.startsWith('http') ? activity.image : `${API.replace('/api', '')}${activity.image}`} 
+                alt={activity.name} 
                 className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                 onError={(e) => { e.target.src = 'https://placehold.co/600x400?text=Actividad'; }}
               />
@@ -304,37 +416,35 @@ const Activities = () => {
             
             <div className="absolute top-3 right-3">
                <span className="badge badge-neutral shadow-sm backdrop-blur-md border border-[var(--border)]">
-                ${activity.price}
+                ${activity.cost}
               </span>
             </div>
+            {activity.is_recurring && (
+                <div className="absolute top-3 left-3">
+                    <span className="badge badge-primary shadow-sm">Recurrente</span>
+                </div>
+            )}
           </div>
 
           <div className="p-5 flex-1 flex flex-col">
-            <h3 className="text-lg font-bold mb-2 text-[var(--text)] group-hover:text-[var(--primary)] transition-colors">{activity.title}</h3>
+            <h3 className="text-lg font-bold mb-2 text-[var(--text)] group-hover:text-[var(--primary)] transition-colors">{activity.name}</h3>
             
             <div className="space-y-2 mb-4 flex-1">
               <div className="flex items-center gap-2 text-sm text-[var(--text-muted)]">
                 <Calendar size={14} className="text-[var(--primary)]" />
-                <span>{new Date(activity.date).toLocaleDateString()} • {activity.time}</span>
+                <span>{activity.schedule}</span>
               </div>
-              <div className="flex items-center gap-2 text-sm text-[var(--text-muted)]">
+              {/* <div className="flex items-center gap-2 text-sm text-[var(--text-muted)]">
                 <MapPin size={14} className="text-[var(--secondary)]" />
-                <span className="truncate">{activity.location}</span>
-              </div>
+                <span className="truncate">{activity.location || 'Sede Central'}</span>
+              </div> */}
             </div>
             
             <div className="card-footer mt-auto border-none p-0 pt-2">
               <div className="flex items-center gap-1.5 text-xs font-medium text-[var(--text-muted)] bg-[var(--background)] px-2 py-1 rounded-md">
                 <Users size={14} />
-                <span>Cupo: {activity.quota || 'Ilimitado'}</span>
+                <span>Cupo: {activity.slots || 'Ilimitado'}</span>
               </div>
-              <span className={`badge ${
-                new Date(activity.date) < new Date() 
-                  ? 'badge-neutral' 
-                  : 'badge-success'
-              }`}>
-                {new Date(activity.date) < new Date() ? 'Finalizado' : 'Próximamente'}
-              </span>
             </div>
           </div>
 
@@ -367,108 +477,209 @@ const Activities = () => {
       </div>
 
       {/* Create/Edit Modal */}
-      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingActivity ? "Editar Actividad" : "Nueva Actividad"}>
-        <form onSubmit={handleSubmit} className="space-y-4">
+      <Modal 
+        isOpen={isModalOpen} 
+        onClose={() => setIsModalOpen(false)} 
+        title={editingActivity ? "Editar Actividad" : "Nueva Actividad"}
+        footer={
+          <>
+             {!editingActivity && (formData.name || formData.description) && (
+               <button 
+                 type="button" 
+                 onClick={handleDiscardDraft}
+                 className="btn btn-ghost text-red-500 hover:bg-red-50 mr-auto"
+               >
+                 Descartar borrador
+               </button>
+             )}
+            <button type="button" className="btn btn-ghost" onClick={() => setIsModalOpen(false)}>Cancelar</button>
+            <button type="submit" form="activity-form" className="btn btn-primary">Guardar</button>
+          </>
+        }
+      >
+        <div className="mb-4">
+           {/* Progress bar logic could be simplified */}
+        </div>
+
+        <form id="activity-form" ref={formRef} onSubmit={handleFormSubmit(onSubmit)} className="space-y-4">
           <div>
-            <label className="label">Título</label>
+            <label htmlFor="name" className="label">Nombre <span className="text-red-500">*</span></label>
             <input 
+              id="name"
               type="text" 
-              className="input w-full min-h-[48px]" 
-              value={formData.title}
-              onChange={e => setFormData({...formData, title: e.target.value})}
-              required
+              name="name"
+              className={`input w-full min-h-[48px] ${errors.name ? 'border-red-500 focus:ring-red-500' : ''}`}
+              value={formData.name}
+              onChange={handleChange}
+              placeholder="Nombre de la actividad"
+              aria-invalid={!!errors.name}
+              aria-describedby={errors.name ? "name-error" : undefined}
             />
+            {errors.name && <p id="name-error" className="text-red-500 text-xs mt-1" role="alert">{errors.name}</p>}
+          </div>
+
+          <div className="flex items-center gap-2 mb-2">
+            <input 
+                type="checkbox" 
+                id="is_recurring" 
+                name="is_recurring" 
+                checked={formData.is_recurring} 
+                onChange={(e) => setFieldValue('is_recurring', e.target.checked)}
+                className="checkbox"
+            />
+            <label htmlFor="is_recurring" className="label cursor-pointer mb-0">Es una actividad recurrente (semanal)</label>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="label">Fecha</label>
-              <input 
-                type="date" 
-                className="input w-full min-h-[48px]" 
-                value={formData.date}
-                onChange={e => setFormData({...formData, date: e.target.value})}
-                required
-              />
+          {formData.is_recurring ? (
+              <div className="p-4 border border-[var(--border)] rounded-lg bg-[var(--surface)]">
+                  <label className="label mb-2">Días de la semana <span className="text-red-500">*</span></label>
+                  <div className="flex flex-wrap gap-2 mb-4">
+                      {daysOptions.map(day => (
+                          <button
+                            key={day.value}
+                            type="button"
+                            onClick={() => toggleDay(day.value)}
+                            className={`btn btn-sm ${formData.recurrence_days?.includes(day.value) ? 'btn-primary' : 'btn-outline'}`}
+                          >
+                              {day.label}
+                          </button>
+                      ))}
+                  </div>
+                  {errors.recurrence_days && <p className="text-red-500 text-xs mt-1 mb-2">{errors.recurrence_days}</p>}
+
+                  <div className="grid grid-cols-2 gap-4">
+                      <div>
+                          <label className="label">Hora Inicio <span className="text-red-500">*</span></label>
+                          <input 
+                              type="time" 
+                              name="start_time" 
+                              value={formData.start_time} 
+                              onChange={handleChange} 
+                              className={`input w-full ${errors.start_time ? 'border-red-500' : ''}`}
+                          />
+                           {errors.start_time && <p className="text-red-500 text-xs mt-1">{errors.start_time}</p>}
+                      </div>
+                      <div>
+                          <label className="label">Hora Fin <span className="text-red-500">*</span></label>
+                          <input 
+                              type="time" 
+                              name="end_time" 
+                              value={formData.end_time} 
+                              onChange={handleChange} 
+                              className={`input w-full ${errors.end_time ? 'border-red-500' : ''}`}
+                          />
+                           {errors.end_time && <p className="text-red-500 text-xs mt-1">{errors.end_time}</p>}
+                      </div>
+                  </div>
+              </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                <label htmlFor="date" className="label">Fecha</label>
+                <input 
+                    id="date"
+                    type="date" 
+                    name="date"
+                    className={`input w-full min-h-[48px]`}
+                    value={formData.date}
+                    onChange={handleChange}
+                />
+                </div>
+                <div>
+                <label htmlFor="time" className="label">Hora</label>
+                <input 
+                    id="time"
+                    type="time" 
+                    name="time"
+                    className={`input w-full min-h-[48px]`}
+                    value={formData.time}
+                    onChange={handleChange}
+                />
+                </div>
             </div>
-            <div>
-              <label className="label">Hora</label>
-              <input 
-                type="time" 
-                className="input w-full min-h-[48px]" 
-                value={formData.time}
-                onChange={e => setFormData({...formData, time: e.target.value})}
-                required
-              />
-            </div>
-          </div>
+          )}
 
           <div>
-            <label className="label">Ubicación</label>
+            <label htmlFor="location" className="label">Ubicación</label>
             <input 
+              id="location"
               type="text" 
-              className="input w-full min-h-[48px]" 
+              name="location"
+              className={`input w-full min-h-[48px] ${errors.location ? 'border-red-500 focus:ring-red-500' : ''}`}
               value={formData.location}
-              onChange={e => setFormData({...formData, location: e.target.value})}
-              required
+              onChange={handleChange}
+              placeholder="Dirección o lugar"
             />
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="label">Precio</label>
+              <label htmlFor="cost" className="label">Precio <span className="text-red-500">*</span></label>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]">$</span>
                 <input 
+                  id="cost"
                   type="number" 
-                  className="input w-full pl-8 min-h-[48px]" 
-                  value={formData.price}
-                  onChange={e => setFormData({...formData, price: e.target.value})}
+                  name="cost"
+                  className={`input w-full pl-8 min-h-[48px] ${errors.cost ? 'border-red-500 focus:ring-red-500' : ''}`}
+                  value={formData.cost}
+                  onChange={handleChange}
                   min="0"
+                  placeholder="0.00"
+                  aria-invalid={!!errors.cost}
+                  aria-describedby={errors.cost ? "cost-error" : undefined}
                 />
               </div>
+              {errors.cost && <p id="cost-error" className="text-red-500 text-xs mt-1" role="alert">{errors.cost}</p>}
             </div>
             <div>
-              <label className="label">Cupo Máximo</label>
+              <label htmlFor="slots" className="label">Cupo Máximo</label>
               <input 
+                id="slots"
                 type="number" 
-                className="input w-full min-h-[48px]" 
-                value={formData.quota}
-                onChange={e => setFormData({...formData, quota: e.target.value})}
+                name="slots"
+                className={`input w-full min-h-[48px] ${errors.slots ? 'border-red-500 focus:ring-red-500' : ''}`}
+                value={formData.slots}
+                onChange={handleChange}
                 min="0"
                 placeholder="Ilimitado"
+                aria-invalid={!!errors.slots}
+                aria-describedby={errors.slots ? "slots-error" : undefined}
               />
+              {errors.slots && <p id="slots-error" className="text-red-500 text-xs mt-1" role="alert">{errors.slots}</p>}
             </div>
           </div>
 
           <div>
-            <label className="label">Descripción</label>
+            <label htmlFor="description" className="label">Descripción <span className="text-red-500">*</span></label>
             <textarea 
-              className="input w-full min-h-[100px] py-3" 
+              id="description"
+              name="description"
+              className={`input w-full min-h-[100px] py-3 ${errors.description ? 'border-red-500 focus:ring-red-500' : ''}`}
               value={formData.description}
-              onChange={e => setFormData({...formData, description: e.target.value})}
+              onChange={handleChange}
               rows="4"
+              placeholder="Detalles de la actividad..."
+              aria-invalid={!!errors.description}
+              aria-describedby={errors.description ? "description-error" : undefined}
             ></textarea>
+            {errors.description && <p id="description-error" className="text-red-500 text-xs mt-1" role="alert">{errors.description}</p>}
           </div>
 
           <div>
-            <label className="label">Imagen de Portada</label>
+            <label htmlFor="image" className="label">Imagen de Portada</label>
             <input 
+              id="image"
               type="file" 
               accept="image/*"
               className="input w-full input-file" 
               onChange={handleImageChange}
             />
             {formData.previewUrl && (
-              <div className="img-preview h-32">
-                <img src={formData.previewUrl} alt="Preview" className="w-full h-full object-cover" />
+              <div className="img-preview h-32 mt-2">
+                <img src={formData.previewUrl} alt="Preview" className="w-full h-full object-cover rounded-md border border-[var(--border)]" />
               </div>
             )}
-          </div>
-
-          <div className="modal-footer">
-            <button type="button" className="btn btn-ghost" onClick={() => setIsModalOpen(false)}>Cancelar</button>
-            <button type="submit" className="btn btn-primary">Guardar</button>
           </div>
         </form>
       </Modal>

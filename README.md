@@ -32,9 +32,13 @@ BASE_URL=http://localhost:5173
 
 ### Frontend (.env.local)
 
-Crea o edita el archivo `app/.env.local` con las claves públicas de Supabase:
+Crea o edita el archivo `app/.env` (o `.env.local`, `.env.development`, `.env.production`) en la raíz de `app` con las siguientes variables:
 
 ```env
+# URL del Backend (Asegurarse de que apunte al puerto correcto, ej. 3003)
+VITE_API_URL=http://localhost:3003/api
+
+# Claves de Supabase
 VITE_SUPABASE_URL=YOUR_SUPABASE_URL
 VITE_SUPABASE_ANON_KEY=YOUR_SUPABASE_ANON_KEY
 ```

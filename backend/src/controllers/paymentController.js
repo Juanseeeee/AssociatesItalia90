@@ -1,4 +1,4 @@
-import { MercadoPagoConfig, PreApproval, Payment } from 'mercadopago';
+import { MercadoPagoConfig, PreApproval, Payment, Preference } from 'mercadopago';
 import supabase from '../supabase.js';
 import { nanoid } from 'nanoid';
 
@@ -6,6 +6,52 @@ import { nanoid } from 'nanoid';
 const client = new MercadoPagoConfig({ 
     accessToken: process.env.MP_ACCESS_TOKEN || 'TEST-8266203530397333-102513-5a401275213670603704812674313626-179373979' 
 });
+
+export const createPaymentPreference = async (req, res) => {
+    try {
+        const { title, quantity, price, email, userId } = req.body;
+
+        const clientUrl = process.env.CLIENT_URL || process.env.BASE_URL || 'http://localhost:5173';
+        
+        console.log('Creating Preference with Client URL:', clientUrl);
+
+        const preference = new Preference(client);
+
+        const body = {
+            items: [
+                {
+                    title: title || 'Membresía Club Italia 90',
+                    quantity: quantity || 1,
+                    unit_price: Number(price) || 12000,
+                    currency_id: 'ARS',
+                }
+            ],
+            payer: {
+                email: email
+            },
+            external_reference: userId,
+            back_urls: {
+                success: `${clientUrl}/dashboard`,
+                failure: `${clientUrl}/dashboard`,
+                pending: `${clientUrl}/dashboard`
+            },
+            // auto_return: 'approved', // Desactivado temporalmente para evitar error de validación
+            // notification_url: `${apiUrl}/api/payments/webhook`
+        };
+
+        console.log('Preference Body:', JSON.stringify(body, null, 2));
+
+        const result = await preference.create({ body });
+
+        res.json({ id: result.id, init_point: result.init_point });
+    } catch (error) {
+        console.error('Error creating preference:', error);
+        res.status(500).json({ 
+            error: 'Error al crear la preferencia de pago', 
+            details: error.message || error.response?.data || error
+        });
+    }
+};
 
 export const createSubscription = async (req, res) => {
     try {
@@ -106,19 +152,24 @@ const activateUser = async (userId, mpData, source = 'subscription') => {
             .from('memberships')
             .update({ 
                 status: 'active',
+                payment_status: 'completed',
                 last_payment_date: new Date().toISOString(),
-                expiration_date: nextMonth.toISOString()
+                expiration_date: nextMonth.toISOString(),
+                payment_method: source,
+                payment_id: mpData.id?.toString()
             })
             .eq('id', userId);
 
         // 4. Registrar pago en historial
         await supabase.from('payments').insert([{
             user_id: userId,
+            email: member.email,
             amount: mpData.transaction_amount || 0,
             status: 'aprobado',
             concept: source === 'subscription' ? 'Suscripción Mensual' : 'Pago Único',
             external_id: mpData.id?.toString(),
-            payment_method: source
+            payment_method: source,
+            created_at: new Date().toISOString()
         }]);
 
         console.log(`User ${userId} activated successfully via ${source}`);
@@ -128,18 +179,12 @@ const activateUser = async (userId, mpData, source = 'subscription') => {
     }
 };
 
-// --- New Endpoints for Direct Payment ---
-
 export const processPayment = async (req, res) => {
     try {
         const { concept, amount, email, card, docNumber, name, enrollment_id } = req.body;
 
         console.log(`Processing direct payment for ${email}: ${amount} (${concept})`);
 
-        // Insert into Supabase payments table
-        // We might not have user_id if it's a new registration not yet in memberships
-        // But enrollment_id might be passed.
-        
         let userId = enrollment_id;
         
         // If no enrollment_id, try to find by email
@@ -171,19 +216,17 @@ export const processPayment = async (req, res) => {
 
         if (error) {
             console.error('Error saving payment to DB:', error);
-            // We continue to return success to frontend for simulation purposes
-            // even if DB write fails (e.g. schema mismatch)
         }
 
         // If it's a membership payment, activate user
         if (userId && (concept.toLowerCase().includes('inscripción') || concept.toLowerCase().includes('cuota') || concept.toLowerCase().includes('suscripción'))) {
-             // Re-use activate logic but simplified
              const now = new Date();
              const nextMonth = new Date(now.setMonth(now.getMonth() + 1));
              await supabase
                 .from('memberships')
                 .update({ 
                     status: 'active',
+                    payment_status: 'completed',
                     last_payment_date: new Date().toISOString(),
                     expiration_date: nextMonth.toISOString()
                 })
@@ -198,34 +241,27 @@ export const processPayment = async (req, res) => {
 };
 
 export const getPayments = async (req, res) => {
-    try {
-        const { data, error } = await supabase
-            .from('payments')
-            .select('*')
-            .order('ts', { ascending: false });
-        
-        if (error) throw error;
-        res.json(data || []);
-    } catch (error) {
-        console.error('Get payments error:', error);
-        res.status(500).json({ error: error.message });
-    }
+    const { data, error } = await supabase
+        .from('payments')
+        .select('*, memberships(email, name)')
+        .order('created_at', { ascending: false });
+    
+    if (error) return res.status(500).json({ error: error.message });
+    
+    // Flatten the response for easier frontend consumption
+    const payments = data.map(p => ({
+        ...p,
+        email: p.email || p.memberships?.email,
+        user_name: p.memberships?.name
+    }));
+    
+    res.json(payments);
 };
 
 export const getPaymentsByEmail = async (req, res) => {
     const { email } = req.query;
-    if (!email) return res.json([]);
-    
-    try {
-        const { data, error } = await supabase
-            .from('payments')
-            .select('*')
-            .eq('email', email)
-            .order('ts', { ascending: false });
-        
-        if (error) throw error;
-        res.json(data || []);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
+    if (!email) return res.status(400).json({ error: 'Email required' });
+    const { data, error } = await supabase.from('payments').select('*').eq('email', email).order('created_at', { ascending: false });
+    if (error) return res.status(500).json({ error: error.message });
+    res.json(data);
 };
