@@ -414,9 +414,27 @@ app.delete('/api/services/:id', requireAuth, requireAdmin, async (req, res) => {
   res.json({ success: true });
 });
 
-// Start Server
-const PORT = process.env.PORT || 3003;
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-  console.log(`Supabase Connected: ${!!supabase}`);
-});
+// Serve frontend static files in production (MUST BE LAST)
+const distDir = path.join(__dirname, '../../app/dist');
+if (fs.existsSync(distDir)) {
+  app.use(express.static(distDir));
+  // Handle SPA routing
+  app.get('*', (req, res) => {
+    // Check if request is for API, if so, 404
+    if (req.path.startsWith('/api')) {
+       return res.status(404).json({ error: 'Not Found' });
+    }
+    res.sendFile(path.join(distDir, 'index.html'));
+  });
+}
+
+// Start Server (only if not running in Vercel serverless environment)
+if (process.env.NODE_ENV !== 'production' || process.env.RUN_LOCAL_SERVER === 'true') {
+  const PORT = process.env.PORT || 3003;
+  app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+    console.log(`Supabase Connected: ${!!supabase}`);
+  });
+}
+
+export default app;
