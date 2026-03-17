@@ -79,7 +79,7 @@ export const createSubscription = async (req, res) => {
                 transaction_amount: amount || 12000,
                 currency_id: 'ARS'
             },
-            back_url: process.env.CLIENT_URL || 'http://localhost:5173/dashboard',
+            back_url: `${process.env.CLIENT_URL || 'http://localhost:5173'}/dashboard`,
             payer_email: email,
             external_reference: user.id, // Vinculamos la suscripción al ID del usuario (Auth ID)
             status: 'pending'

@@ -40,6 +40,16 @@ export default function InstitutionalContent() {
         behavior: 'smooth'
       });
       setActiveSection(sectionKey);
+
+      // Accessibility: Move focus to the section for screen readers
+      if (Platform.OS === 'web') {
+        element.setAttribute('tabIndex', '-1');
+        element.focus({ preventScroll: true });
+        // Remove tabIndex after blur to keep DOM clean
+        element.addEventListener('blur', () => {
+          element.removeAttribute('tabIndex');
+        }, { once: true });
+      }
     }
   };
 
@@ -91,7 +101,13 @@ export default function InstitutionalContent() {
   return (
     <View style={styles.container}>
       {/* Hero Section */}
-      <ImageBackground source={{uri: '/assets/hero-campania2.jpeg'}} style={[styles.pageHero, isMobile && {minHeight: '50vh'}]}>
+      <ImageBackground 
+        source={{uri: '/assets/hero-campania2.jpeg'}} 
+        style={[styles.pageHero, isMobile && {minHeight: '50vh'}]}
+        accessible={true}
+        accessibilityRole="image"
+        accessibilityLabel="Vista panorámica del estadio del Club Italia 90"
+      >
         <View style={styles.pageHeroOverlay}>
           <View style={styles.wrapper}>
             <Text style={[styles.pageHeroTitle, isMobile && {fontSize: 32}]}>QUIÉNES SOMOS</Text>
@@ -101,7 +117,7 @@ export default function InstitutionalContent() {
       </ImageBackground>
 
       {/* Sticky Navigation */}
-      <View style={[styles.stickyNav, isMobile && styles.stickyNavMobile]}>
+      <View style={[styles.stickyNav, isMobile && styles.stickyNavMobile]} accessible={true} accessibilityRole="tablist">
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.stickyNavContent}>
           {navItems.map((item) => (
             <TouchableOpacity 
@@ -111,6 +127,9 @@ export default function InstitutionalContent() {
                 styles.stickyNavItem, 
                 activeSection === item.key && styles.stickyNavItemActive
               ]}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: activeSection === item.key }}
+              accessibilityLabel={`Ir a la sección ${item.label}`}
             >
               <Text style={[
                 styles.stickyNavText, 
@@ -127,7 +146,7 @@ export default function InstitutionalContent() {
         {/* Historia Section */}
         <View ref={sections.historia} style={styles.sectionBlock}>
           <View style={styles.wrapper}>
-            <Text style={styles.sectionTitle}>Nuestra Historia</Text>
+            <Text style={styles.sectionTitle} accessibilityRole="header">Nuestra Historia</Text>
             <View style={[styles.twoColumnGrid, isMobile && {flexDirection: 'column'}]}>
               <View style={styles.textColumn}>
                 <Text style={styles.paragraph}>
@@ -141,7 +160,12 @@ export default function InstitutionalContent() {
                 </Text>
               </View>
               <View style={styles.imageColumn}>
-                <Image source={{uri: '/assets/escuelita-1.jpg'}} style={styles.sectionImage} />
+                <Image 
+                  source={{uri: '/assets/escuelita-1.jpg'}} 
+                  style={styles.sectionImage} 
+                  accessibilityLabel="Niños jugando fútbol en la escuelita del club"
+                  loading="lazy"
+                />
               </View>
             </View>
           </View>
@@ -150,10 +174,15 @@ export default function InstitutionalContent() {
         {/* Misión Section */}
         <View ref={sections.mision} style={[styles.sectionBlock, styles.bgLight]}>
           <View style={styles.wrapper}>
-            <Text style={styles.sectionTitle}>Nuestra Misión</Text>
+            <Text style={styles.sectionTitle} accessibilityRole="header">Nuestra Misión</Text>
             <View style={[styles.twoColumnGrid, isMobile && {flexDirection: 'column-reverse'}]}>
               <View style={styles.imageColumn}>
-                <Image source={{uri: '/assets/escuelita-3.jpg'}} style={styles.sectionImage} />
+                <Image 
+                  source={{uri: '/assets/escuelita-3.jpg'}} 
+                  style={styles.sectionImage} 
+                  accessibilityLabel="Entrenamiento deportivo en el club"
+                  loading="lazy"
+                />
               </View>
               <View style={styles.textColumn}>
                 <Text style={styles.paragraph}>
@@ -248,10 +277,16 @@ export default function InstitutionalContent() {
                 </View>
               </View>
               <View style={styles.mapContainer}>
-                {/* Placeholder for Map - Replace with actual iframe or map component */}
-                <View style={styles.mapPlaceholder}>
-                  <Text style={styles.mapText}>Mapa de Ubicación</Text>
-                </View>
+                {/* Map Link */}
+                <TouchableOpacity 
+                  style={styles.mapPlaceholder} 
+                  onPress={() => window.open('https://www.google.com/maps/search/?api=1&query=Club+Social+y+Deportivo+Italia+90', '_blank')}
+                  accessibilityRole="link"
+                  accessibilityLabel="Abrir ubicación en Google Maps"
+                >
+                  <Text style={styles.mapIcon}>📍</Text>
+                  <Text style={styles.mapText}>Ver en Google Maps</Text>
+                </TouchableOpacity>
               </View>
             </View>
           </View>
@@ -303,7 +338,7 @@ const styles = StyleSheet.create({
   },
   stickyNav: {
     position: 'sticky',
-    top: 70, // Adjust based on main header height
+    top: 100, // Adjusted to sit below the fixed main header
     backgroundColor: '#fff',
     zIndex: 900,
     borderBottomWidth: 1,
@@ -501,9 +536,15 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    cursor: 'pointer',
+  },
+  mapIcon: {
+    fontSize: 48,
+    marginBottom: 16,
   },
   mapText: {
     color: '#64748b',
     fontSize: 18,
+    fontWeight: '600',
   }
 });

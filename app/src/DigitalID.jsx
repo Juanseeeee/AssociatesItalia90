@@ -4,7 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { QRCodeCanvas } from 'qrcode.react';
 import html2canvas from 'html2canvas';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3003/api';
+import { API_URL } from './config/api';
 
 const DigitalID = () => {
   const { id } = useParams();

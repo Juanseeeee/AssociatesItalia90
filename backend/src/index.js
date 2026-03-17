@@ -71,6 +71,19 @@ app.get('/api/user/family', requireAuth, async (req, res) => {
   res.json(family || []);
 });
 
+app.get('/api/user/family/:id', requireAuth, async (req, res) => {
+  const { id } = req.params;
+  const { data, error } = await supabase
+    .from('family_members')
+    .select('*')
+    .eq('id', id)
+    .eq('parent_id', req.user.id)
+    .single();
+    
+  if (error || !data) return res.status(404).json({ error: 'Not found' });
+  res.json(data);
+});
+
 app.post('/api/user/family', requireAuth, upload.fields([
     { name: 'photo', maxCount: 1 }, 
     { name: 'dni_copy', maxCount: 1 },
@@ -132,6 +145,98 @@ app.post('/api/user/family', requireAuth, upload.fields([
   await logAudit(req, 'ADD_MINOR', 'user', req.user.id, { minorId: data.id, name: `${firstName} ${lastName}` });
   
   res.status(201).json(data);
+});
+
+app.put('/api/user/family/:id', requireAuth, upload.fields([
+    { name: 'photo', maxCount: 1 }, 
+    { name: 'dni_copy', maxCount: 1 },
+    { name: 'school_cert', maxCount: 1 },
+    { name: 'auth_parents', maxCount: 1 }
+]), async (req, res) => {
+  const { id } = req.params;
+  const { firstName, lastName, dni, birthDate, medicalInfo, relation } = req.body;
+  
+  // Verify ownership
+  const { data: existing, error: checkError } = await supabase
+    .from('family_members')
+    .select('id')
+    .eq('id', id)
+    .eq('parent_id', req.user.id)
+    .single();
+
+  if (checkError || !existing) {
+    return res.status(403).json({ error: 'No autorizado para editar este miembro' });
+  }
+
+  const updates = {};
+  if (firstName) updates.first_name = firstName;
+  if (lastName) updates.last_name = lastName;
+  if (dni) updates.dni = dni;
+  if (birthDate) updates.birth_date = birthDate;
+  if (medicalInfo !== undefined) updates.medical_info = medicalInfo;
+  if (relation) updates.relation = relation;
+
+  if (req.files) {
+    for (const [key, fileArray] of Object.entries(req.files)) {
+      const file = fileArray[0];
+      const filename = `family/${Date.now()}-${nanoid(6)}${path.extname(file.originalname)}`;
+      const filepath = path.join(uploadDir, filename);
+      
+      const dir = path.dirname(filepath);
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+
+      try {
+        if (file.mimetype.startsWith('image/')) {
+          await sharp(file.buffer)
+            .resize(800, 800, { fit: 'inside', withoutEnlargement: true })
+            .toFile(filepath);
+        } else {
+          fs.writeFileSync(filepath, file.buffer);
+        }
+        
+        if (key === 'photo') updates.photo_url = `/uploads/${filename}`;
+        if (key === 'dni_copy') updates.dni_url = `/uploads/${filename}`;
+        if (key === 'school_cert') updates.school_cert_url = `/uploads/${filename}`;
+        if (key === 'auth_parents') updates.auth_parents_url = `/uploads/${filename}`;
+      } catch (e) {
+        console.error('File save error during update:', e);
+      }
+    }
+  }
+
+  const { data, error } = await supabase
+    .from('family_members')
+    .update(updates)
+    .eq('id', id)
+    .select()
+    .single();
+    
+  if (error) return res.status(500).json({ error: error.message });
+  
+  await logAudit(req, 'UPDATE_MINOR', 'user', req.user.id, { minorId: id });
+  res.json(data);
+});
+
+app.delete('/api/user/family/:id', requireAuth, async (req, res) => {
+  const { id } = req.params;
+  
+  // Verify ownership
+  const { data: existing, error: checkError } = await supabase
+    .from('family_members')
+    .select('id')
+    .eq('id', id)
+    .eq('parent_id', req.user.id)
+    .single();
+
+  if (checkError || !existing) {
+    return res.status(403).json({ error: 'No autorizado para eliminar este miembro' });
+  }
+
+  const { error } = await supabase.from('family_members').delete().eq('id', id);
+  if (error) return res.status(500).json({ error: error.message });
+
+  await logAudit(req, 'DELETE_MINOR', 'user', req.user.id, { minorId: id });
+  res.json({ success: true });
 });
 
 // --- Members Routes moved to routes/members.js ---
@@ -312,6 +417,6 @@ app.delete('/api/services/:id', requireAuth, requireAdmin, async (req, res) => {
 // Start Server
 const PORT = process.env.PORT || 3003;
 app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+  console.log(`Server running on port ${PORT}`);
   console.log(`Supabase Connected: ${!!supabase}`);
 });

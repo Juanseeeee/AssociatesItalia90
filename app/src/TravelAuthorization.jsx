@@ -3,7 +3,7 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Activi
 import { useNavigate } from 'react-router-dom';
 import BiometricSignature from './BiometricSignature';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3003/api';
+import { API_URL } from './config/api';
 
 const TravelAuthorization = () => {
   const navigate = useNavigate();

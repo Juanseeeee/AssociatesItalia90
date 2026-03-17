@@ -18,7 +18,7 @@ import Modal from '../components/Modal';
 import { compressImage } from '../../utils/imageUtils';
 import { useFormWithScroll } from '../../hooks/useFormWithScroll';
 
-const API = import.meta.env.VITE_API_URL || 'http://localhost:3003/api';
+import { API_URL as API } from '../../config/api';
 
 const validateActivity = (values) => {
   const errors = {};

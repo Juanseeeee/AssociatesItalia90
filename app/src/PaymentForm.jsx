@@ -3,7 +3,7 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator,
 import { useLocation, useNavigate } from 'react-router-dom';
 import { validateLuhn, validateExpiryDate, validateCVV, validateCardName, formatExpiryDate, formatCardNumber, getCardType } from './utils/validation';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3003/api';
+import { API_URL } from './config/api';
 
 export default function PaymentForm() {
   const location = useLocation();

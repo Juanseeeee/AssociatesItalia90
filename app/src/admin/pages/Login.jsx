@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { ShieldCheck, Lock, User } from 'lucide-react';
 
-const API = import.meta.env.VITE_API_URL || 'http://localhost:3003/api';
+import { API_URL as API } from '../../config/api';
 
 const Login = () => {
   const [email, setEmail] = useState('');
