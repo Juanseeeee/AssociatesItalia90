@@ -700,7 +700,6 @@ const Register = () => {
 
     return (
       <View style={styles.stepContainer}>
-        <ScrollView style={{ maxHeight: '60vh' }} showsVerticalScrollIndicator={true}>
         <View style={styles.calculator}>
           <Text style={styles.calcTitle}>Suscripción Mensual</Text>
           <Text style={styles.calcAmount}>${amount.toLocaleString()}</Text>
@@ -746,7 +745,6 @@ const Register = () => {
                 La suscripción se debita automáticamente cada mes. Podés cancelar en cualquier momento.
             </Text>
         </View>
-        </ScrollView>
       </View>
     );
   };
@@ -816,8 +814,7 @@ const Register = () => {
 const styles = StyleSheet.create({
   backgroundImage: {
     width: '100%',
-    height: '100vh',
-    overflow: 'hidden',
+    minHeight: '100vh',
   },
   overlay: {
     flex: 1,
@@ -825,7 +822,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 10,
-    paddingTop: 100, // Header spacer
+    paddingTop: 120, // Header spacer
+    paddingBottom: 40,
   },
   card: {
     backgroundColor: '#fff',
@@ -833,7 +831,6 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 500,
     padding: 20,
-    maxHeight: '95vh',
     display: 'flex',
     flexDirection: 'column',
   },
