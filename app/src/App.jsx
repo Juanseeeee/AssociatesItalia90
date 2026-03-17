@@ -10,6 +10,8 @@ import TravelAuthorization from './TravelAuthorization';
 import TravelAuthorizationSign from './TravelAuthorizationSign';
 import MemberVerification from './MemberVerification';
 import PaymentForm from './PaymentForm';
+import SociosContent from './pages/SociosContent';
+import InstitutionalContent from './pages/InstitutionalContent';
 
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Login from './auth/Login';
@@ -745,79 +747,6 @@ function AppContent() {
     </>
   );
 
-  const SociosContent = () => (
-    <>
-          <ImageBackground source={{uri: '/assets/hero-campania2.jpeg'}} style={[styles.pageHero, isMobile && {minHeight: '40vh'}]}>
-            <View style={styles.pageHeroOverlay}>
-              <View style={styles.wrapper}>
-                <Text style={[styles.pageHeroTitle, isMobile && {fontSize: 32}]}>HAZTE SOCIO</Text>
-                <Text style={[styles.pageHeroSubtitle, isMobile && {fontSize: 16}]}>Sé parte de la pasión. Elegí el plan que mejor se adapte a vos.</Text>
-              </View>
-            </View>
-          </ImageBackground>
-
-          <View style={styles.sectionContainer}>
-            <View style={styles.wrapper}>
-              <Text style={styles.sectionTitleLarge}>NUESTROS PLANES</Text>
-              <View style={[styles.pricingGrid, isMobile && {gridTemplateColumns: '1fr', display: 'flex', flexDirection: 'column', gap: 24}]}>
-                <View style={styles.pricingCard}>
-                  <Text style={styles.pricingTitle}>MENOR</Text>
-                  <Text style={styles.pricingPrice}>$8.000<Text style={styles.pricingPeriod}>/mes</Text></Text>
-                  <View style={styles.divider}/>
-                  <Text style={styles.pricingFeature}>✓ Acceso al club</Text>
-                  <Text style={styles.pricingFeature}>✓ Escuela deportiva</Text>
-                  <Text style={styles.pricingFeature}>✓ Descuentos en indumentaria</Text>
-                  <TouchableOpacity style={styles.btnOutline} onPress={()=>navigate('/asociate')}><Text style={styles.btnTextOutline}>ASOCIARME</Text></TouchableOpacity>
-                </View>
-
-                <View style={[styles.pricingCard, styles.pricingCardFeatured]}>
-                  <View style={styles.popularTag}><Text style={styles.popularTagText}>MÁS ELEGIDO</Text></View>
-                  <Text style={[styles.pricingTitle, styles.textWhite]}>INDIVIDUAL</Text>
-                  <Text style={[styles.pricingPrice, styles.textWhite]}>$12.000<Text style={[styles.pricingPeriod, styles.textWhiteOpt]}>/mes</Text></Text>
-                  <View style={[styles.divider, {borderColor:'rgba(255,255,255,0.2)'}]}/>
-                  <Text style={[styles.pricingFeature, styles.textWhite]}>✓ Acceso total al club</Text>
-                  <Text style={[styles.pricingFeature, styles.textWhite]}>✓ Gimnasio incluido</Text>
-                  <Text style={[styles.pricingFeature, styles.textWhite]}>✓ Voz y voto en asambleas</Text>
-                  <Text style={[styles.pricingFeature, styles.textWhite]}>✓ Sorteos exclusivos</Text>
-                  <TouchableOpacity style={styles.btnWhite} onPress={()=>navigate('/asociate')}><Text style={styles.btnTextPrimary}>QUIERO ESTE PLAN</Text></TouchableOpacity>
-                </View>
-
-                <View style={styles.pricingCard}>
-                  <Text style={styles.pricingTitle}>FAMILIAR</Text>
-                  <Text style={styles.pricingPrice}>$24.000<Text style={styles.pricingPeriod}>/mes</Text></Text>
-                  <View style={styles.divider}/>
-                  <Text style={styles.pricingFeature}>✓ Grupo familiar directo</Text>
-                  <Text style={styles.pricingFeature}>✓ Acceso para todos</Text>
-                  <Text style={styles.pricingFeature}>✓ Escuelas deportivas bonificadas</Text>
-                  <TouchableOpacity style={styles.btnOutline} onPress={()=>navigate('/register')}><Text style={styles.btnTextOutline}>ASOCIARME</Text></TouchableOpacity>
-                </View>
-              </View>
-
-              <View style={styles.benefitsSection}>
-                 <Text style={styles.sectionTitleLarge}>BENEFICIOS EXCLUSIVOS</Text>
-                 <View style={[styles.benefitsGrid, isMobile && {gridTemplateColumns: '1fr', display: 'flex', flexDirection: 'column', gap: 24}]}>
-                    <View style={styles.benefitItem}>
-                       <Text style={styles.benefitIcon}>🏟️</Text>
-                       <Text style={styles.benefitTitle}>Prioridad en Entradas</Text>
-                       <Text style={styles.benefitDesc}>Acceso anticipado a la compra de tickets para partidos importantes.</Text>
-                    </View>
-                    <View style={styles.benefitItem}>
-                       <Text style={styles.benefitIcon}>👕</Text>
-                       <Text style={styles.benefitTitle}>Descuentos en Tienda</Text>
-                       <Text style={styles.benefitDesc}>20% off en indumentaria oficial y merchandising del club.</Text>
-                    </View>
-                    <View style={styles.benefitItem}>
-                       <Text style={styles.benefitIcon}>🎉</Text>
-                       <Text style={styles.benefitTitle}>Eventos Privados</Text>
-                       <Text style={styles.benefitDesc}>Invitaciones a cenas, sorteos y encuentros con jugadores.</Text>
-                    </View>
-                 </View>
-              </View>
-            </View>
-          </View>
-    </>
-  );
-
   const PagosContent = () => (
     <>
           <ImageBackground source={{uri: '/assets/cancha-interna-1.jpg'}} style={[styles.pageHero, isMobile && {minHeight: '40vh'}]}>
@@ -914,7 +843,7 @@ function AppContent() {
         <Route path="/payment/failure" element={<PaymentFailure/>}/>
         <Route path="/payment/pending" element={<PaymentPending/>}/>
         <Route path="/perfil" element={<PerfilContent/>}/>
-        <Route path="/institucional" element={<HomeContent/>}/>
+        <Route path="/institucional" element={<InstitutionalContent/>}/>
         <Route path="/noticias" element={<HomeContent/>}/>
         <Route path="/admin/*" element={<AdminRoutes/>}/>
       </Routes>

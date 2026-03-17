@@ -37,6 +37,23 @@ export const getActivities = async (req, res) => {
     res.json(data || []);
 };
 
+export const deleteActivitySoft = async (req, res) => {
+    const { id } = req.params;
+    
+    const { error } = await supabase
+        .from('activities')
+        .update({ deleted_at: new Date().toISOString() })
+        .eq('id', id);
+
+    if (error) {
+        console.error('Error deleting activity:', error);
+        return res.status(500).json({ error: error.message });
+    }
+
+    await logAudit(req, 'DELETE', 'activity', id, { deleted_at: new Date().toISOString() });
+    res.json({ message: 'Activity deleted successfully' });
+};
+
 export const createActivity = async (req, res) => {
     let { name, slots, cost, schedule, description, image, is_recurring, recurrence_days, start_time, end_time } = req.body || {};
     
