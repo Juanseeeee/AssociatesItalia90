@@ -55,7 +55,6 @@ const DigitalID = ({ member }) => {
               <Image 
                 source={{ uri: photoUrl }} 
                 style={styles.photo} 
-                resizeMode="cover" 
                 accessibilityLabel={`Foto de perfil de ${member.name}`}
               />
             ) : (
@@ -139,10 +138,7 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 420,
     alignSelf: 'center',
-    shadowColor: '#070571',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.3,
-    shadowRadius: 20,
+    boxShadow: '0px 10px 20px rgba(7, 5, 113, 0.3)',
     elevation: 10,
     overflow: 'hidden',
     position: 'relative',
@@ -241,10 +237,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#e2e8f0',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 5,
+    boxShadow: '0px 4px 5px rgba(0, 0, 0, 0.3)',
     elevation: 6,
   },
   photo: {

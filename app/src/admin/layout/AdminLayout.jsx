@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Outlet } from 'react-router-dom';
 import { Menu, X, Moon, Sun } from 'lucide-react';
-import { Toaster } from 'sonner';
 import Sidebar from './Sidebar';
 import '../admin.css';
 
@@ -19,8 +18,6 @@ const AdminLayout = () => {
 
   return (
     <div className="admin-wrapper" data-theme={theme}>
-      <Toaster position="top-right" richColors closeButton theme={theme} />
-      
       <Sidebar 
         isOpen={isSidebarOpen} 
         onClose={() => setIsSidebarOpen(false)} 

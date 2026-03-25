@@ -184,7 +184,7 @@ export default function TravelAuthorizationSign() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 20, backgroundColor: '#f5f5f5' },
-  card: { backgroundColor: 'white', padding: 20, borderRadius: 10, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 5 },
+  card: { backgroundColor: 'white', padding: 20, borderRadius: 10, boxShadow: '0px 2px 5px rgba(0,0,0,0.1)' },
   title: { fontSize: 22, fontWeight: 'bold', marginBottom: 20, textAlign: 'center', color: '#070571' },
   subtitle: { fontSize: 18, fontWeight: 'bold', marginTop: 15, marginBottom: 10, color: '#333' },
   infoRow: { flexDirection: 'row', marginBottom: 8 },

@@ -2,7 +2,7 @@
   max-width: 800px;
   margin: 0 auto;
   padding: 2rem;
-  font-family: 'Garet', 'Inter', sans-serif;
+  font-family: 'Bebas Neue', 'Inter', sans-serif;
   color: #070571;
 }
 
@@ -43,6 +43,8 @@ h2 {
   padding-bottom: 0.5rem;
   margin-bottom: 1.5rem;
   font-size: 1.2rem;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
 }
 
 .form-row {

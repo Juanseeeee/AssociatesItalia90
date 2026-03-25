@@ -8,7 +8,8 @@ import {
   XCircle, 
   Clock,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  FileText
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -180,6 +181,7 @@ const Payments = () => {
                 <th>Monto</th>
                 <th>Estado</th>
                 <th className="hidden lg:table-cell">Método</th>
+                <th className="hidden lg:table-cell">Comprobante</th>
               </tr>
             </thead>
             <tbody>
@@ -211,14 +213,28 @@ const Payments = () => {
                       </div>
                     </td>
                     <td className="text-sm text-[var(--text-muted)] hidden md:table-cell">
-                      {payment.created_at ? new Date(payment.created_at).toLocaleDateString() : '-'}
+                      {payment.created_at || payment.createdAt ? new Date(payment.created_at || payment.createdAt).toLocaleDateString() : '-'}
                     </td>
                     <td className="font-bold text-[var(--text)]">
                       ${Number(payment.amount).toLocaleString()}
                     </td>
                     <td>{getStatusBadge(payment.status)}</td>
                     <td className="text-sm text-[var(--text-muted)] capitalize hidden lg:table-cell">
-                      {payment.payment_method || payment.method || 'Tarjeta'}
+                      {payment.method_label || payment.payment_method || payment.method || 'Tarjeta'}
+                    </td>
+                    <td className="hidden lg:table-cell">
+                      <button 
+                        className="btn btn-outline min-h-[36px] h-[36px] px-3 justify-center"
+                        title="Ver comprobante"
+                        onClick={() => {
+                          const idOrExt = payment.external_id || payment.id;
+                          if (!idOrExt) return;
+                          window.open(`${API}/payments/${idOrExt}/receipt`, '_blank');
+                        }}
+                      >
+                        <FileText size={16} />
+                        <span className="ml-2">Abrir</span>
+                      </button>
                     </td>
                   </tr>
                 ))

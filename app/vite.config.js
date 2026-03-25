@@ -26,5 +26,9 @@ export default defineConfig(({ command }) => ({
     globals: true,
     environment: 'jsdom',
     setupFiles: './src/setupTests.js',
+    pool: 'threads',
+    deps: {
+      inline: ['@asamuzakjp/css-color', '@csstools/css-calc']
+    }
   }
 }));

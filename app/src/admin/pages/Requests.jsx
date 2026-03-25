@@ -43,31 +43,35 @@ const Requests = () => {
 
   const handleAction = async (id, action) => {
     const isApprove = action === 'approve';
-    if (!window.confirm(`¿Estás seguro de ${isApprove ? 'APROBAR' : 'RECHAZAR'} esta solicitud?`)) return;
-
     const token = localStorage.getItem('admin_token');
-    const toastId = toast.loading('Procesando solicitud...');
-
-    try {
-      const res = await fetch(`${API}/requests/${action}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ requestId: id })
-      });
-
-      if (res.ok) {
-        toast.success(`Solicitud ${isApprove ? 'aprobada' : 'rechazada'} correctamente`, { id: toastId });
-        setIsModalOpen(false);
-        fetchRequests();
-      } else {
-        throw new Error('Error en la operación');
-      }
-    } catch (error) {
-      toast.error('Error al procesar la solicitud', { id: toastId });
-    }
+    toast.warning(`¿${isApprove ? 'Aprobar' : 'Rechazar'} esta solicitud?`, {
+      action: {
+        label: isApprove ? 'Aprobar' : 'Rechazar',
+        onClick: async () => {
+          const toastId = toast.loading('Procesando solicitud...');
+          try {
+            const res = await fetch(`${API}/requests/${action}`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+              },
+              body: JSON.stringify({ requestId: id })
+            });
+            if (res.ok) {
+              toast.success(`Solicitud ${isApprove ? 'aprobada' : 'rechazada'} correctamente`, { id: toastId });
+              setIsModalOpen(false);
+              fetchRequests();
+            } else {
+              throw new Error('Error en la operación');
+            }
+          } catch (error) {
+            toast.error('Error al procesar la solicitud', { id: toastId });
+          }
+        }
+      },
+      cancel: { label: 'Cancelar' }
+    });
   };
 
   const openDetails = (req) => {

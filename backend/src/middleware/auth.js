@@ -28,9 +28,10 @@ export const requireAdmin = async (req, res, next) => {
       .single();
 
     if (error || !adminUser) {
-        // Fallback for dev environment
-        if (process.env.NODE_ENV !== 'production' && req.user.email === 'admin@localhost') {
-            console.warn('⚠️ Admin check bypassed (Dev mode fallback)');
+        // Fallback for dev environment or initial admin setup
+        // Allow access if the user's role in the JWT is 'admin' (set during login based on memberships/metadata)
+        if (req.user.role === 'admin' || (process.env.NODE_ENV !== 'production' && req.user.email === 'admin@localhost')) {
+            console.warn(`⚠️ Admin check bypassed for ${req.user.email} (JWT Role fallback)`);
             return next();
         }
         return res.status(403).json({ error: 'forbidden_not_admin' });

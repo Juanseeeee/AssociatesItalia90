@@ -3,7 +3,7 @@ export const compressImage = (file, quality = 0.7, maxWidth = 1024) => {
     const reader = new FileReader();
     reader.readAsDataURL(file);
     reader.onload = event => {
-      const img = new Image();
+      const img = new window.Image();
       img.src = event.target.result;
       img.onload = () => {
         const elem = document.createElement('canvas');

@@ -60,6 +60,35 @@ const upload = multer({
 });
 
 // --- Endpoints ---
+// Basic Security Headers without external deps
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'no-referrer');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  next();
+});
+
+// Simple in-memory rate limiter (per-IP & route), conservative limits
+const rateState = new Map();
+app.use((req, res, next) => {
+  const key = `${req.ip}:${req.path}`;
+  const now = Date.now();
+  const windowMs = 60 * 1000;
+  const limit = req.path.startsWith('/api/auth') || req.path.startsWith('/api/payments')
+    ? 30 // stricter for auth and payments
+    : 120;
+  let entry = rateState.get(key);
+  if (!entry || (now - entry.start) > windowMs) {
+    entry = { start: now, count: 0 };
+  }
+  entry.count++;
+  rateState.set(key, entry);
+  if (entry.count > limit) {
+    return res.status(429).json({ error: 'Too Many Requests' });
+  }
+  next();
+});
 
 app.get('/api/user/family', requireAuth, async (req, res) => {
   const { data: family, error } = await supabase
@@ -253,6 +282,174 @@ app.get('/api/kpi', async (req, res) => {
   }
 });
 
+// --- Admin Requests Endpoint (sync with real DB, with robust fallbacks) ---
+app.get('/api/requests', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    // Try primary table: membership_requests
+    const { data: requests, error: reqErr } = await supabase
+      .from('membership_requests')
+      .select('*')
+      .order('created_at', { ascending: false });
+    
+    let combined = Array.isArray(requests) ? requests : [];
+    
+    // If table missing or error, gracefully fallback
+    if (reqErr) {
+      // Fallback 1: pending minors requiring review
+      const { data: minors } = await supabase
+        .from('family_members')
+        .select('*')
+        .eq('membership_status', 'pending');
+      
+      if (Array.isArray(minors) && minors.length > 0) {
+        combined = combined.concat(minors.map(m => ({
+          id: m.id,
+          type: 'minor_pending',
+          first_name: m.first_name,
+          last_name: m.last_name,
+          dni: m.dni,
+          created_at: m.created_at,
+          relation: m.relation,
+        })));
+      }
+      
+      // Fallback 2: members with pending/inactive status that need admin review
+      const { data: pendMembers } = await supabase
+        .from('memberships')
+        .select('id, email, first_name, last_name, status, created_at')
+        .in('status', ['pending_payment', 'disabled']);
+      
+      if (Array.isArray(pendMembers) && pendMembers.length > 0) {
+        combined = combined.concat(pendMembers.map(m => ({
+          id: m.id,
+          type: 'membership_pending',
+          email: m.email,
+          first_name: m.first_name,
+          last_name: m.last_name,
+          status: m.status,
+          created_at: m.created_at,
+        })));
+      }
+    }
+    
+    res.json(combined);
+  } catch (e) {
+    console.error('Requests endpoint error:', e);
+    res.status(500).json({ error: 'Error loading requests' });
+  }
+});
+
+// --- Admin Activity Feed ---
+app.get('/api/admin/activity-feed', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const limit = Number(req.query.limit || 20);
+    const offset = Number(req.query.offset || 0);
+    const typeFilter = (req.query.type || '').toString();
+    const from = req.query.from ? new Date(req.query.from) : null;
+    const to = req.query.to ? new Date(req.query.to) : null;
+    const events = [];
+    
+    const [{ data: payments }, { data: members }, { data: enrollments }, { data: activities }, { data: news }] = await Promise.all([
+      supabase.from('payments').select('id, concept, amount, status, created_at, email').order('created_at', { ascending: false }).limit(200),
+      supabase.from('memberships').select('id, email, first_name, last_name, status, created_at').order('created_at', { ascending: false }).limit(200),
+      supabase.from('activity_enrollments').select('id, member_id, status, created_at').order('created_at', { ascending: false }).limit(200),
+      supabase.from('activities').select('id, name, created_at').order('created_at', { ascending: false }).limit(200),
+      supabase.from('news').select('id, title, published_at').order('published_at', { ascending: false }).limit(200),
+    ]);
+    
+    if (Array.isArray(payments)) {
+      payments.forEach(p => events.push({ type: 'payment', ts: p.created_at, payload: p }));
+    }
+    if (Array.isArray(members)) {
+      members.forEach(m => events.push({ type: 'member_created', ts: m.created_at, payload: m }));
+    }
+    if (Array.isArray(enrollments)) {
+      enrollments.forEach(e => events.push({ type: 'enrollment', ts: e.created_at, payload: e }));
+    }
+    if (Array.isArray(activities)) {
+      activities.forEach(a => events.push({ type: 'activity_created', ts: a.created_at, payload: a }));
+    }
+    if (Array.isArray(news)) {
+      news.forEach(n => events.push({ type: 'news_published', ts: n.published_at, payload: n }));
+    }
+    
+    let sorted = events
+      .filter(e => e.ts)
+      .sort((a, b) => new Date(b.ts) - new Date(a.ts))
+    
+    if (typeFilter) {
+      sorted = sorted.filter(e => e.type === typeFilter);
+    }
+    if (from) {
+      sorted = sorted.filter(e => new Date(e.ts) >= from);
+    }
+    if (to) {
+      sorted = sorted.filter(e => new Date(e.ts) <= to);
+    }
+    
+    const total = sorted.length;
+    const page = sorted.slice(offset, offset + limit);
+      
+    res.json({ items: page, total, has_more: offset + limit < total });
+  } catch (e) {
+    console.error('Activity feed error:', e);
+    res.status(500).json({ error: 'Error loading activity feed' });
+  }
+});
+
+// --- Admin KPIs ---
+app.get('/api/admin/kpis', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = now.getMonth();
+    const monthStart = new Date(y, m, 1).toISOString();
+    const monthEnd = new Date(y, m + 1, 0, 23, 59, 59).toISOString();
+    
+    const [membersRes, paymentsRes, minorsRes, pendMembersRes] = await Promise.all([
+      supabase.from('memberships').select('id,status,membership_status,created_at').order('created_at', { ascending: false }).limit(2000),
+      supabase.from('payments').select('id,amount,status,created_at').gte('created_at', monthStart).lte('created_at', monthEnd).order('created_at', { ascending: false }).limit(5000),
+      supabase.from('family_members').select('id, created_at').eq('membership_status', 'pending').limit(2000),
+      supabase.from('memberships').select('id,status,created_at').in('status', ['pending_payment', 'disabled']).limit(2000),
+    ]);
+    
+    const members = membersRes.data || [];
+    const payments = paymentsRes.data || [];
+    const minorsPend = minorsRes.data || [];
+    const pendMembers = pendMembersRes.data || [];
+    
+    const totalMembers = members.length;
+    const activeMembers = members.filter(m => (m.status === 'active') || (m.membership_status === 'active')).length;
+    const pendingRequests = minorsPend.length + pendMembers.length;
+    const monthlyRevenue = payments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+    
+    const statusCounts = payments.reduce((acc, p) => {
+      const s = String(p.status || '').toLowerCase();
+      acc[s] = (acc[s] || 0) + 1;
+      return acc;
+    }, {});
+    
+    const revenueByDay = [];
+    const byDate = {};
+    payments.forEach(p => {
+      if (!p.created_at) return;
+      const d = new Date(p.created_at);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      byDate[key] = (byDate[key] || 0) + Number(p.amount || 0);
+    });
+    Object.entries(byDate).forEach(([date, amount]) => revenueByDay.push({ date, amount }));
+    revenueByDay.sort((a, b) => new Date(a.date) - new Date(b.date));
+    
+    res.json({
+      totals: { totalMembers, activeMembers, pendingRequests, monthlyRevenue },
+      paymentsStatusCounts: statusCounts,
+      revenueByDay
+    });
+  } catch (e) {
+    console.error('KPIs error:', e);
+    res.status(500).json({ error: 'Error loading KPIs' });
+  }
+});
 // --- News Endpoints ---
 
 app.get('/api/news', async (req, res) => {
@@ -264,38 +461,88 @@ app.get('/api/news', async (req, res) => {
   res.json(data || []);
 });
 
-app.post('/api/news', requireAdmin, async (req, res) => {
+// Ensure dedicated folder for news images
+const newsUploadDir = path.join(uploadDir, 'news');
+if (!fs.existsSync(newsUploadDir)) {
+  fs.mkdirSync(newsUploadDir, { recursive: true });
+}
+const uploadNews = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 }
+});
+
+app.post('/api/news', requireAdmin, uploadNews.single('image'), async (req, res) => {
   const { title, excerpt, image } = req.body;
   if (!title) return res.status(400).json({ error: 'Title required' });
   
+  let imageUrl = image || '';
+  if (req.file) {
+    try {
+      const filename = `news/${Date.now()}-${nanoid(6)}.webp`;
+      const filepath = path.join(uploadDir, filename);
+      const dir = path.dirname(filepath);
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      await sharp(req.file.buffer)
+        .resize(800, 600, { fit: 'cover', withoutEnlargement: false })
+        .toFile(filepath);
+      imageUrl = `/uploads/${filename}`;
+    } catch (e) {
+      console.error('Error saving image:', e);
+      return res.status(500).json({ error: 'Error saving image' });
+    }
+  }
+
   const newsItem = {
     id: randomUUID(),
     title,
     excerpt: excerpt || '',
-    image: image || '',
+    image: imageUrl,
     published_at: new Date().toISOString()
   };
 
-  const { data, error } = await supabase.from('news').insert([newsItem]).select().single();
+  const { data, error } = await supabase.from('news').insert([newsItem]).select();
   if (error) return res.status(500).json({ error: error.message });
   
-  await logAudit(req, 'CREATE', 'news', data.id, { title });
-  res.status(201).json(data);
+  const created = Array.isArray(data) ? data[0] : data;
+  await logAudit(req, 'CREATE', 'news', created?.id, { title });
+  res.status(201).json(created);
 });
 
-app.put('/api/news/:id', requireAuth, requireAdmin, async (req, res) => {
+app.put('/api/news/:id', requireAuth, requireAdmin, uploadNews.single('image'), async (req, res) => {
   const { id } = req.params;
   const { title, excerpt, image } = req.body;
   
+  const updates = {};
+  if (title !== undefined) updates.title = title;
+  if (excerpt !== undefined) updates.excerpt = excerpt;
+
+  if (req.file) {
+    try {
+      const filename = `news/${Date.now()}-${nanoid(6)}.webp`;
+      const filepath = path.join(uploadDir, filename);
+      const dir = path.dirname(filepath);
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      await sharp(req.file.buffer)
+        .resize(800, 600, { fit: 'cover', withoutEnlargement: false })
+        .toFile(filepath);
+      updates.image = `/uploads/${filename}`;
+    } catch (e) {
+      console.error('Error saving image:', e);
+      return res.status(500).json({ error: 'Error saving image' });
+    }
+  } else if (image !== undefined) {
+    updates.image = image;
+  }
+
   const { data, error } = await supabase.from('news')
-    .update({ title, excerpt, image })
+    .update(updates)
     .eq('id', id)
-    .select()
-    .single();
+    .select();
     
   if (error) return res.status(500).json({ error: error.message });
+  const updated = Array.isArray(data) ? data[0] : data;
   await logAudit(req, 'UPDATE', 'news', id, { title });
-  res.json(data);
+  res.json(updated || { id, title, excerpt, image });
 });
 
 app.delete('/api/news/:id', requireAuth, requireAdmin, async (req, res) => {

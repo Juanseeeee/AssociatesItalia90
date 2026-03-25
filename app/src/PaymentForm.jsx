@@ -4,25 +4,27 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { validateLuhn, validateExpiryDate, validateCVV, validateCardName, formatExpiryDate, formatCardNumber, getCardType } from './utils/validation';
 
 import { API_URL } from './config/api';
+import { toast } from 'sonner';
 
 export default function PaymentForm() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { concept, amount, enrollment_id } = location.state || { concept: 'Pago General', amount: 0 };
+  const { concept, amount, enrollment_id, email: stateEmail, memberName, memberDni } = location.state || { concept: 'Pago General', amount: 0 };
   
   const [formData, setFormData] = useState({
     cardNumber: '',
-    cardName: '',
+    cardName: memberName || '',
     expiryDate: '',
     cvv: '',
-    email: '',
+    email: stateEmail || '',
     docType: 'DNI',
-    docNumber: ''
+    docNumber: memberDni || ''
   });
   
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState('initial'); // initial, processing, success, error
+  const [paymentMethod, setPaymentMethod] = useState('card'); // card, mercadopago
 
   const handleChange = (field, value) => {
     let formattedValue = value;
@@ -36,18 +38,67 @@ export default function PaymentForm() {
 
   const validate = () => {
     const newErrors = {};
-    if (!validateLuhn(formData.cardNumber)) newErrors.cardNumber = 'Número de tarjeta inválido';
-    if (!validateCardName(formData.cardName)) newErrors.cardName = 'Nombre inválido';
-    if (!validateExpiryDate(formData.expiryDate)) newErrors.expiryDate = 'Fecha inválida (MM/YY)';
-    if (!validateCVV(formData.cvv, getCardType(formData.cardNumber))) newErrors.cvv = 'CVV inválido';
     if (!formData.email.includes('@')) newErrors.email = 'Email inválido';
     if (!formData.docNumber) newErrors.docNumber = 'Documento requerido';
+    
+    if (paymentMethod === 'card') {
+      if (!validateLuhn(formData.cardNumber)) newErrors.cardNumber = 'Número de tarjeta inválido';
+      if (!validateCardName(formData.cardName)) newErrors.cardName = 'Nombre inválido';
+      if (!validateExpiryDate(formData.expiryDate)) newErrors.expiryDate = 'Fecha inválida (MM/YY)';
+      if (!validateCVV(formData.cvv, getCardType(formData.cardNumber))) newErrors.cvv = 'CVV inválido';
+    }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
+  const handleMercadoPago = async () => {
+    if (!validate()) return;
+    
+    setLoading(true);
+    setStatus('processing');
+    try {
+      const response = await fetch(`${API_URL}/payments/create-preference`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({
+          title: concept,
+          quantity: 1,
+          price: amount,
+          email: formData.email,
+          enrollment_id,
+          docNumber: formData.docNumber,
+          name: formData.cardName
+        })
+      });
+
+      if (!response.ok) throw new Error('Error al iniciar el pago');
+
+      const data = await response.json();
+      if (data.init_point) {
+        window.location.href = data.init_point;
+      } else {
+        throw new Error('No se pudo generar el link de pago');
+      }
+    } catch (error) {
+      console.error('Payment error:', error);
+      setStatus('error');
+      setErrors({ submit: 'Error al conectar con Mercado Pago. Intente nuevamente.' });
+      toast.error('Error al conectar con Mercado Pago');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSubmit = async () => {
+    if (paymentMethod === 'mercadopago') {
+      handleMercadoPago();
+      return;
+    }
+
     if (!validate()) return;
     
     setLoading(true);
@@ -80,6 +131,7 @@ export default function PaymentForm() {
       console.error(error);
       setStatus('error');
       setErrors({ submit: 'Error de conexión. Intente nuevamente.' });
+      toast.error('Error procesando el pago');
     } finally {
       setLoading(false);
     }
@@ -96,7 +148,7 @@ export default function PaymentForm() {
           <Text style={styles.successText}>Tu pago de ${amount} por "{concept}" se procesó correctamente.</Text>
           <Text style={styles.emailText}>Enviamos el comprobante a {formData.email}</Text>
           
-          <TouchableOpacity style={styles.btnPrimary} onPress={() => navigate('/')}>
+          <TouchableOpacity style={styles.btnPrimary} onPress={() => navigate('/dashboard?payment_status=approved')}>
             <Text style={styles.btnText}>Volver al Inicio</Text>
           </TouchableOpacity>
         </View>
@@ -114,6 +166,15 @@ export default function PaymentForm() {
             <Text style={styles.summaryLabel}>Concepto</Text>
             <Text style={styles.summaryValue}>{concept}</Text>
             <View style={styles.divider} />
+            
+            {memberName && (
+              <>
+                <Text style={styles.summaryLabel}>Inscrito</Text>
+                <Text style={styles.summaryValue}>{memberName} (DNI: {memberDni})</Text>
+                <View style={styles.divider} />
+              </>
+            )}
+
             <Text style={styles.summaryLabel}>Total a Pagar</Text>
             <Text style={styles.summaryAmount}>${amount}</Text>
           </View>
@@ -124,6 +185,22 @@ export default function PaymentForm() {
             </View>
           )}
 
+          <Text style={[styles.label, {marginTop: 10, marginBottom: 10}]}>Método de Pago</Text>
+          <View style={{flexDirection: 'row', gap: 10, marginBottom: 20}}>
+            <TouchableOpacity 
+              style={[styles.paymentMethodBtn, paymentMethod === 'card' && styles.paymentMethodBtnActive]}
+              onPress={() => setPaymentMethod('card')}
+            >
+              <Text style={[styles.paymentMethodText, paymentMethod === 'card' && styles.paymentMethodTextActive]}>💳 Tarjeta</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={[styles.paymentMethodBtn, paymentMethod === 'mercadopago' && styles.paymentMethodBtnActive]}
+              onPress={() => setPaymentMethod('mercadopago')}
+            >
+              <Text style={[styles.paymentMethodText, paymentMethod === 'mercadopago' && styles.paymentMethodTextActive]}>Mercado Pago</Text>
+            </TouchableOpacity>
+          </View>
+
           <View style={styles.formGroup}>
             <Text style={styles.label}>Email para el comprobante</Text>
             <TextInput
@@ -132,77 +209,105 @@ export default function PaymentForm() {
               onChangeText={(text) => handleChange('email', text)}
               placeholder="ejemplo@email.com"
               keyboardType="email-address"
+              onSubmitEditing={handleSubmit}
+              onKeyPress={(e) => {
+                if (e.nativeEvent.key === 'Enter') handleSubmit();
+              }}
             />
             {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
           </View>
 
           <View style={styles.formGroup}>
-            <Text style={styles.label}>Titular de la Tarjeta</Text>
+            <Text style={styles.label}>Titular / Pagador</Text>
             <TextInput
               style={[styles.input, errors.cardName && styles.inputError]}
               value={formData.cardName}
               onChangeText={(text) => handleChange('cardName', text)}
-              placeholder="Como figura en la tarjeta"
+              placeholder="Nombre del pagador"
+              onSubmitEditing={handleSubmit}
+              onKeyPress={(e) => {
+                if (e.nativeEvent.key === 'Enter') handleSubmit();
+              }}
             />
             {errors.cardName && <Text style={styles.errorText}>{errors.cardName}</Text>}
           </View>
           
           <View style={styles.formGroup}>
-            <Text style={styles.label}>Número de Documento</Text>
+            <Text style={styles.label}>Número de Documento del Pagador</Text>
             <TextInput
               style={[styles.input, errors.docNumber && styles.inputError]}
               value={formData.docNumber}
               onChangeText={(text) => handleChange('docNumber', text)}
-              placeholder="DNI del titular"
+              placeholder="DNI"
               keyboardType="numeric"
+              onSubmitEditing={handleSubmit}
+              onKeyPress={(e) => {
+                if (e.nativeEvent.key === 'Enter') handleSubmit();
+              }}
             />
             {errors.docNumber && <Text style={styles.errorText}>{errors.docNumber}</Text>}
           </View>
 
-          <View style={styles.formGroup}>
-            <Text style={styles.label}>Número de Tarjeta</Text>
-            <View style={styles.cardInputContainer}>
-              <TextInput
-                style={[styles.input, styles.cardInput, errors.cardNumber && styles.inputError]}
-                value={formData.cardNumber}
-                onChangeText={(text) => handleChange('cardNumber', text)}
-                placeholder="0000 0000 0000 0000"
-                keyboardType="numeric"
-                maxLength={19}
-              />
-              <Text style={styles.cardBrand}>{getCardType(formData.cardNumber)}</Text>
-            </View>
-            {errors.cardNumber && <Text style={styles.errorText}>{errors.cardNumber}</Text>}
-          </View>
+          {paymentMethod === 'card' && (
+            <>
+              <View style={styles.formGroup}>
+                <Text style={styles.label}>Número de Tarjeta</Text>
+                <View style={styles.cardInputContainer}>
+                  <TextInput
+                    style={[styles.input, styles.cardInput, errors.cardNumber && styles.inputError]}
+                    value={formData.cardNumber}
+                    onChangeText={(text) => handleChange('cardNumber', text)}
+                    placeholder="0000 0000 0000 0000"
+                    keyboardType="numeric"
+                    maxLength={19}
+                    onSubmitEditing={handleSubmit}
+                    onKeyPress={(e) => {
+                      if (e.nativeEvent.key === 'Enter') handleSubmit();
+                    }}
+                  />
+                  <Text style={styles.cardBrand}>{getCardType(formData.cardNumber)}</Text>
+                </View>
+                {errors.cardNumber && <Text style={styles.errorText}>{errors.cardNumber}</Text>}
+              </View>
 
-          <View style={styles.row}>
-            <View style={[styles.formGroup, { flex: 1, marginRight: 10 }]}>
-              <Text style={styles.label}>Vencimiento</Text>
-              <TextInput
-                style={[styles.input, errors.expiryDate && styles.inputError]}
-                value={formData.expiryDate}
-                onChangeText={(text) => handleChange('expiryDate', text)}
-                placeholder="MM/YY"
-                maxLength={5}
-                keyboardType="numeric"
-              />
-              {errors.expiryDate && <Text style={styles.errorText}>{errors.expiryDate}</Text>}
-            </View>
-            
-            <View style={[styles.formGroup, { flex: 1 }]}>
-              <Text style={styles.label}>CVV</Text>
-              <TextInput
-                style={[styles.input, errors.cvv && styles.inputError]}
-                value={formData.cvv}
-                onChangeText={(text) => handleChange('cvv', text)}
-                placeholder="123"
-                maxLength={4}
-                keyboardType="numeric"
-                secureTextEntry
-              />
-              {errors.cvv && <Text style={styles.errorText}>{errors.cvv}</Text>}
-            </View>
-          </View>
+              <View style={styles.row}>
+                <View style={[styles.formGroup, { flex: 1, marginRight: 10 }]}>
+                  <Text style={styles.label}>Vencimiento</Text>
+                  <TextInput
+                    style={[styles.input, errors.expiryDate && styles.inputError]}
+                    value={formData.expiryDate}
+                    onChangeText={(text) => handleChange('expiryDate', text)}
+                    placeholder="MM/YY"
+                    maxLength={5}
+                    keyboardType="numeric"
+                    onSubmitEditing={handleSubmit}
+                    onKeyPress={(e) => {
+                      if (e.nativeEvent.key === 'Enter') handleSubmit();
+                    }}
+                  />
+                  {errors.expiryDate && <Text style={styles.errorText}>{errors.expiryDate}</Text>}
+                </View>
+                
+                <View style={[styles.formGroup, { flex: 1 }]}>
+                  <Text style={styles.label}>CVV</Text>
+                  <TextInput
+                    style={[styles.input, errors.cvv && styles.inputError]}
+                    value={formData.cvv}
+                    onChangeText={(text) => handleChange('cvv', text)}
+                    placeholder="123"
+                    maxLength={getCardType(formData.cardNumber) === 'AMEX' ? 4 : 3}
+                    keyboardType="numeric"
+                    secureTextEntry
+                    onSubmitEditing={handleSubmit}
+                    onKeyPress={(e) => {
+                      if (e.nativeEvent.key === 'Enter') handleSubmit();
+                    }}
+                  />
+                  {errors.cvv && <Text style={styles.errorText}>{errors.cvv}</Text>}
+                </View>
+              </View>
+            </>
+          )}
 
           <TouchableOpacity 
             style={[styles.btnPrimary, loading && styles.btnDisabled]} 
@@ -246,11 +351,8 @@ const styles = StyleSheet.create({
     padding: 30,
     width: '100%',
     maxWidth: 480,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
     elevation: 5,
+    boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.1)',
   },
   title: {
     fontSize: 24,
@@ -326,14 +428,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: 10,
-    shadowColor: '#070571',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
+    boxShadow: '0px 4px 8px rgba(7, 5, 113, 0.2)',
+    elevation: 4,
   },
   btnDisabled: {
     backgroundColor: '#6c757d',
-    shadowOpacity: 0,
+    boxShadow: 'none',
+    elevation: 0,
   },
   btnText: {
     color: '#fff',
@@ -415,5 +516,25 @@ const styles = StyleSheet.create({
     color: '#999',
     textAlign: 'center',
     marginBottom: 30,
+  },
+  paymentMethodBtn: {
+    flex: 1,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    borderRadius: 8,
+    alignItems: 'center',
+    backgroundColor: '#f9fafb'
+  },
+  paymentMethodBtnActive: {
+    borderColor: '#070571',
+    backgroundColor: '#eef2ff'
+  },
+  paymentMethodText: {
+    fontWeight: '600',
+    color: '#6b7280'
+  },
+  paymentMethodTextActive: {
+    color: '#070571'
   }
 });

@@ -140,9 +140,7 @@ const styles = StyleSheet.create({
     marginTop: 20,
     fontSize: 16,
     fontWeight: '600',
-    textShadowColor: 'rgba(0,0,0,0.75)',
-    textShadowOffset: {width: 0, height: 1},
-    textShadowRadius: 4,
+    textShadow: '0px 1px 4px rgba(0,0,0,0.75)',
   },
   controls: {
     position: 'absolute',
