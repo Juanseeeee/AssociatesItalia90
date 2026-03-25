@@ -510,7 +510,7 @@ function AppContent() {
                 <View style={[styles.newsFeaturedCol, isMobile && {width: '100%', marginBottom: 16}]}>
                   {(news||[])[newsIndex] && (
                     <TouchableOpacity key={(news||[])[newsIndex].id} style={[styles.newsFeatured, isMobile && {height: 360}]} onPress={()=>navigate('/noticias')}>
-                      <ImageBackground source={{uri: (news||[])[newsIndex].image || '/assets/escuelita-1.jpg'}} style={styles.newsFeaturedBg} imageStyle={{borderRadius: 8}}>
+                      <ImageBackground source={{uri: (() => { const img = (news||[])[newsIndex].image; return img ? (img.startsWith('http') ? img : `${API_URL.replace('/api','')}${img}`) : '/assets/escuelita-1.jpg'; })()}} style={styles.newsFeaturedBg} imageStyle={{borderRadius: 8}}>
                         <View style={styles.newsOverlay}>
                           <View style={styles.newsTag}><Text style={styles.newsTagText}>INSTITUCIONAL</Text></View>
                           <Text style={[styles.newsFeaturedTitle, isMobile && {fontSize: 26}]}>{(news||[])[newsIndex].title}</Text>
@@ -538,7 +538,7 @@ function AppContent() {
                 <View style={[styles.newsSecondaryGrid, isMobile && {width: '100%'}]}>
                   {(news||[]).slice(1,5).map(n => (
                     <TouchableOpacity key={n.id} style={styles.newsSecondaryCard} onPress={()=>navigate('/noticias')}>
-                      <Image source={{uri: n.image || '/assets/deportes-1.jpg'}} style={styles.newsSecondaryImg} />
+                      <Image source={{uri: (() => { const img = n.image; return img ? (img.startsWith('http') ? img : `${API_URL.replace('/api','')}${img}`) : '/assets/deportes-1.jpg'; })()}} style={styles.newsSecondaryImg} />
                       <View style={styles.newsSecondaryContent}>
                         <Text style={styles.newsDate}>{new Date().toLocaleDateString('es-AR')}</Text>
                         <Text style={styles.newsSecondaryTitle} numberOfLines={3}>{n.title}</Text>
