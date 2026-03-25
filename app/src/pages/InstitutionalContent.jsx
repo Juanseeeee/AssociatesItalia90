@@ -320,9 +320,7 @@ const styles = StyleSheet.create({
     color: '#fff',
     marginBottom: 16,
     textAlign: 'center',
-    textShadowColor: 'rgba(0,0,0,0.5)',
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 4,
+    textShadow: '0px 4px 10px rgba(0,0,0,0.5)',
   },
   pageHeroSubtitle: {
     fontSize: 20,

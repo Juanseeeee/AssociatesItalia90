@@ -227,11 +227,8 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     maxHeight: 250,
     zIndex: 9999,
+    boxShadow: '0px 2px 4px rgba(0,0,0,0.1)',
     elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
   },
   scrollView: {
     flex: 1,

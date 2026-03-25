@@ -98,10 +98,7 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 400,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
+    boxShadow: '0px 4px 10px rgba(0, 0, 0, 0.1)',
     elevation: 5,
   },
   cardError: {
@@ -115,7 +112,7 @@ const styles = StyleSheet.create({
   logo: {
     width: 80,
     height: 80,
-    resizeMode: 'contain',
+    objectFit: 'contain',
     marginBottom: 10,
   },
   clubName: {

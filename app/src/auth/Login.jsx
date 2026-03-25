@@ -39,7 +39,6 @@ const Login = () => {
       <ImageBackground 
         source={{ uri: '/assets/fondo-celebracion.jpg' }}
         style={styles.backgroundImage}
-        resizeMode="cover"
       >
         <View style={styles.overlay}>
           <View style={styles.card}>
@@ -47,7 +46,6 @@ const Login = () => {
               <Image 
                 source={{ uri: '/logo-italia90.png' }} 
                 style={styles.logo} 
-                resizeMode="contain" 
               />
               <Text style={styles.brandTitle}>ITALIA 90</Text>
             </View>
@@ -70,6 +68,10 @@ const Login = () => {
                 placeholderTextColor="#9ca3af"
                 autoCapitalize="none"
                 keyboardType="email-address"
+                onSubmitEditing={handleLogin}
+                onKeyPress={(e) => {
+                  if (e.nativeEvent.key === 'Enter') handleLogin();
+                }}
               />
             </View>
 
@@ -82,6 +84,10 @@ const Login = () => {
                 placeholder="••••••••"
                 placeholderTextColor="#9ca3af"
                 secureTextEntry
+                onSubmitEditing={handleLogin}
+                onKeyPress={(e) => {
+                  if (e.nativeEvent.key === 'Enter') handleLogin();
+                }}
               />
             </View>
 
@@ -140,13 +146,7 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 360, // Compact width
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 4.65,
+    boxShadow: '0px 4px 5px rgba(0, 0, 0, 0.3)',
     elevation: 8,
   },
   headerContainer: {
@@ -213,7 +213,8 @@ const styles = StyleSheet.create({
     marginTop: 8,
     minHeight: 48, // Touch target size
     justifyContent: 'center',
-    shadowColor: '#070571',
+    boxShadow: '0px 4px 5px rgba(7, 5, 113, 0.3)',
+    elevation: 4,
   },
   buttonText: {
     color: '#fff',

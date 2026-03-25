@@ -32,6 +32,8 @@ const News = () => {
   const [news, setNews] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('');
+  const [cols, setCols] = useState(3);
+  const [view, setView] = useState('grid');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingNews, setEditingNews] = useState(null);
   
@@ -66,6 +68,19 @@ const News = () => {
     fetchNews();
   }, []);
 
+  useEffect(() => {
+    if (isModalOpen && editingNews && formRef?.current) {
+      const scrollToTitle = () => {
+        const el = formRef.current.querySelector('#title');
+        if (el) {
+          el.focus();
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      };
+      requestAnimationFrame(scrollToTitle);
+    }
+  }, [isModalOpen, editingNews, formRef]);
+
   const fetchNews = async () => {
     setLoading(true);
     try {
@@ -85,9 +100,9 @@ const News = () => {
       setEditingNews(item);
       resetForm({
         title: item.title,
-        content: item.content,
+        content: item.excerpt,
         image: null,
-        previewUrl: item.image_url ? (item.image_url.startsWith('http') ? item.image_url : `${API.replace('/api', '')}${item.image_url}`) : null
+        previewUrl: item.image ? (item.image.startsWith('http') ? item.image : `${API.replace('/api', '')}${item.image}`) : null
       });
     } else {
       setEditingNews(null);
@@ -136,24 +151,29 @@ const News = () => {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('¿Estás seguro de eliminar esta noticia?')) return;
-    
     const token = localStorage.getItem('admin_token');
-    try {
-      const res = await fetch(`${API}/news/${id}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-
-      if (res.ok) {
-        toast.success('Noticia eliminada');
-        fetchNews();
-      } else {
-        throw new Error('Error al eliminar');
-      }
-    } catch (error) {
-      toast.error('Error al eliminar la noticia');
-    }
+    toast.warning('¿Eliminar esta noticia?', {
+      action: {
+        label: 'Eliminar',
+        onClick: async () => {
+          try {
+            const res = await fetch(`${API}/news/${id}`, {
+              method: 'DELETE',
+              headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (res.ok) {
+              toast.success('Noticia eliminada');
+              fetchNews();
+            } else {
+              throw new Error('Error al eliminar');
+            }
+          } catch (error) {
+            toast.error('Error al eliminar la noticia');
+          }
+        }
+      },
+      cancel: { label: 'Cancelar' }
+    });
   };
 
   const onSubmit = async (values) => {
@@ -161,9 +181,11 @@ const News = () => {
     
     const data = new FormData();
     data.append('title', values.title);
-    data.append('content', values.content);
+    data.append('excerpt', values.content);
     if (values.image) {
       data.append('image', values.image);
+    } else if (values.previewUrl) {
+      data.append('image', values.previewUrl);
     }
 
     const toastId = toast.loading(editingNews ? 'Actualizando...' : 'Publicando...');
@@ -199,7 +221,7 @@ const News = () => {
 
   const SkeletonCard = () => (
     <div className="card overflow-hidden flex flex-col h-full animate-pulse shadow-none">
-      <div className="h-48 bg-[var(--border)] opacity-30"></div>
+      <div className="card-thumb bg-[var(--border)] opacity-30"></div>
       <div className="p-4 flex-1 flex flex-col">
         <div className="h-6 w-3/4 bg-[var(--border)] opacity-50 rounded mb-2"></div>
         <div className="space-y-2 mb-4 flex-1">
@@ -225,87 +247,115 @@ const News = () => {
       </div>
 
       <div className="card">
-        <div className="search-wrapper w-full">
-          <Search className="search-icon" size={18} />
-          <input 
-            type="text" 
-            className="input w-full" 
-            placeholder="Buscar noticia..." 
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-          />
+        <div className="toolbar">
+          <div className="toolbar-line">
+            <div className="search-wrapper w-full">
+              <Search className="search-icon" size={18} />
+              <input 
+                type="text" 
+                className="input w-full" 
+                placeholder="Buscar noticia..." 
+                value={filter}
+                onChange={(e) => setFilter(e.target.value)}
+              />
+            </div>
+            <div className="layout-toggle">
+              <label className="label hidden sm:inline">Vista</label>
+              <select className="input" value={view} onChange={(e) => setView(e.target.value)}>
+                <option value="grid">Grilla</option>
+                <option value="carousel">Carrusel</option>
+              </select>
+            </div>
+            {view === 'grid' && (
+              <div className="layout-toggle">
+                <label className="label hidden sm:inline">Columnas</label>
+                <select className="input" value={cols} onChange={(e) => setCols(Number(e.target.value))}>
+                  <option value={3}>3 por fila</option>
+                  <option value={4}>4 por fila</option>
+                </select>
+              </div>
+            )}
+            </div>
+          </div>
         </div>
-      </div>
 
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {[1, 2, 3, 4, 5, 6].map(i => <SkeletonCard key={i} />)}
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredNews.map((item, index) => (
-            <div 
-              key={item.id} 
-              className="card overflow-hidden flex flex-col h-full hover-card animate-slide-up group"
-              style={{ animationDelay: `${index * 50}ms` }}
-            >
-              <div className="relative h-48 overflow-hidden group">
-                <img 
-                  src={item.image_url ? (item.image_url.startsWith('http') ? item.image_url : `${API.replace('/api', '')}${item.image_url}`) : '/placeholder-news.jpg'} 
-                  alt={item.title}
-                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                  onError={(e) => { e.target.src = 'https://placehold.co/600x400?text=Noticia'; }}
-                />
-                <div className="absolute top-3 right-3">
-                  <span className="badge badge-neutral shadow-sm backdrop-blur-md border border-[var(--border)]">
-                    {new Date(item.created_at || Date.now()).toLocaleDateString()}
-                  </span>
+        view === 'carousel' ? (
+          <div className="carousel">
+            <NewsCarousel items={filteredNews} onEdit={handleOpenModal} onDelete={handleDelete} />
+          </div>
+        ) : (
+          <div className={`cards-grid ${cols === 4 ? 'cols-4' : 'cols-3'}`}>
+            {filteredNews.map((item, index) => (
+              <div 
+                key={item.id} 
+                className="card overflow-hidden flex flex-col hover-card animate-slide-up group"
+                style={{ animationDelay: `${index * 50}ms` }}
+              >
+                <div className="card-thumb relative overflow-hidden group">
+                  <img 
+                    src={item.image ? (item.image.startsWith('http') ? item.image : `${API.replace('/api', '')}${item.image}`) : '/placeholder-news.jpg'} 
+                    alt={item.title}
+                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                    onError={(e) => { e.target.src = 'https://placehold.co/600x400?text=Noticia'; }}
+                  />
+                  <div className="absolute top-3 right-3">
+                    <span className="badge badge-neutral shadow-sm backdrop-blur-md border border-[var(--border)]">
+                      {new Date(item.created_at || Date.now()).toLocaleDateString()}
+                    </span>
+                  </div>
                 </div>
-              </div>
-              
-              <div className="p-5 flex-1 flex flex-col">
-                <h3 className="text-lg font-bold mb-2 text-[var(--text)] line-clamp-2 leading-tight group-hover:text-[var(--primary)] transition-colors">
-                  {item.title}
-                </h3>
-                <p className="text-[var(--text-muted)] text-sm mb-4 line-clamp-3 flex-1 leading-relaxed">
-                  {item.content}
-                </p>
                 
-                <div className="card-footer text-xs border-none p-0 pt-2 mt-0">
-                   <div className="flex items-center gap-1 text-[var(--text-muted)]">
-                     <Eye size={14} />
-                     <span>Visto por socios</span>
-                   </div>
+                <div className="p-4 flex-1 flex flex-col">
+                  <h3 className="text-lg font-bold mb-2 text-[var(--text)] line-clamp-2 leading-tight group-hover:text-[var(--primary)] transition-colors">
+                    {item.title}
+                  </h3>
+                  <p className="text-[var(--text-muted)] text-sm mb-4 line-clamp-3 flex-1 leading-relaxed">
+                    {item.excerpt}
+                  </p>
+                  
+                  <div className="card-footer text-xs border-none p-0 pt-2 mt-0">
+                     <div className="flex items-center gap-1 text-[var(--text-muted)]">
+                       <Eye size={14} />
+                       <span>Visto por socios</span>
+                     </div>
+                  </div>
+                </div>
+
+                <div className="card-actions flex gap-2 mt-auto">
+                  <button 
+                    type="button"
+                    onClick={() => handleOpenModal(item)}
+                    className="flex-1 btn btn-outline text-sm min-h-[44px] flex items-center justify-center shadow-sm"
+                  >
+                    <Edit size={18} className="mr-1" /> Editar
+                  </button>
+                  <button 
+                    type="button"
+                    onClick={() => handleDelete(item.id)}
+                    className="flex-1 btn btn-destructive text-sm min-h-[44px] flex items-center justify-center shadow-sm"
+                  >
+                    <Trash2 size={18} className="mr-1" /> Eliminar
+                  </button>
                 </div>
               </div>
-
-              <div className="card-actions flex gap-2 mt-auto">
-                <button 
-                  onClick={() => handleOpenModal(item)}
-                  className="flex-1 btn btn-outline text-sm min-h-[44px] flex items-center justify-center shadow-sm"
-                >
-                  <Edit size={18} className="mr-1" /> Editar
-                </button>
-                <button 
-                  onClick={() => handleDelete(item.id)}
-                  className="flex-1 btn btn-destructive text-sm min-h-[44px] flex items-center justify-center shadow-sm"
-                >
-                  <Trash2 size={18} className="mr-1" /> Eliminar
-                </button>
+            ))}
+            
+            {filteredNews.length === 0 && (
+              <div className="col-span-full py-16 text-center bg-[var(--surface)] rounded-xl border border-[var(--border)] border-dashed animate-fade-in">
+                <div className="w-16 h-16 bg-[var(--background)] rounded-full flex items-center justify-center mx-auto mb-4 text-[var(--text-muted)]">
+                  <Newspaper size={32} />
+                </div>
+                <h3 className="text-lg font-medium text-[var(--text)] mb-1">No hay noticias</h3>
+                <p className="text-[var(--text-muted)]">No se encontraron noticias con los filtros actuales</p>
               </div>
-            </div>
-          ))}
-          
-          {filteredNews.length === 0 && (
-            <div className="col-span-full py-16 text-center bg-[var(--surface)] rounded-xl border border-[var(--border)] border-dashed animate-fade-in">
-              <div className="w-16 h-16 bg-[var(--background)] rounded-full flex items-center justify-center mx-auto mb-4 text-[var(--text-muted)]">
-                <Newspaper size={32} />
-              </div>
-              <h3 className="text-lg font-medium text-[var(--text)] mb-1">No hay noticias</h3>
-              <p className="text-[var(--text-muted)]">No se encontraron noticias con los filtros actuales</p>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        )
       )}
 
       <Modal 
@@ -407,3 +457,65 @@ const News = () => {
 };
 
 export default News;
+
+const NewsCarousel = ({ items, onEdit, onDelete }) => {
+  const [index, setIndex] = useState(0);
+  useEffect(() => {
+    if (!items || items.length === 0) return;
+    const id = setInterval(() => {
+      setIndex(prev => (prev + 1) % items.length);
+    }, 4000);
+    return () => clearInterval(id);
+  }, [items]);
+  if (!items || items.length === 0) {
+    return (
+      <div className="carousel-empty">
+        <div className="w-16 h-16 bg-[var(--background)] rounded-full flex items-center justify-center mx-auto mb-4 text-[var(--text-muted)]">
+          <Newspaper size={32} />
+        </div>
+        <p className="text-[var(--text-muted)]">No hay noticias para mostrar</p>
+      </div>
+    );
+  }
+  return (
+    <div className="carousel-root">
+      <div className="carousel-track" style={{ transform: `translateX(-${index * 100}%)` }}>
+        {items.map((item) => (
+          <div key={item.id} className="carousel-slide">
+            <div className="card-thumb relative overflow-hidden group">
+              <img 
+                src={item.image ? (item.image.startsWith('http') ? item.image : `${API.replace('/api', '')}${item.image}`) : '/placeholder-news.jpg'} 
+                alt={item.title}
+                className="w-full h-full object-cover"
+                onError={(e) => { e.target.src = 'https://placehold.co/600x400?text=Noticia'; }}
+              />
+            </div>
+            <div className="p-4">
+              <h3 className="text-base font-bold mb-1 text-[var(--text)] line-clamp-2">{item.title}</h3>
+              <p className="text-[var(--text-muted)] text-sm mb-3 line-clamp-2">{item.excerpt}</p>
+              <div className="flex gap-2">
+                <button type="button" className="btn btn-outline" onClick={() => onEdit(item)}><Edit size={16} /></button>
+                <button type="button" className="btn btn-destructive" onClick={() => onDelete(item.id)}><Trash2 size={16} /></button>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="carousel-controls">
+        <button type="button" className="carousel-btn" onClick={() => setIndex((index - 1 + items.length) % items.length)}>‹</button>
+        <div className="carousel-dots">
+          {items.map((_, i) => (
+            <button 
+              key={i} 
+              type="button"
+              className={`dot ${i === index ? 'active' : ''}`} 
+              onClick={() => setIndex(i)} 
+              aria-label={`Ir a la noticia ${i+1}`}
+            />
+          ))}
+        </div>
+        <button type="button" className="carousel-btn" onClick={() => setIndex((index + 1) % items.length)}>›</button>
+      </div>
+    </div>
+  );
+};

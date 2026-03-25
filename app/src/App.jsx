@@ -21,6 +21,7 @@ const FamilyManager = React.lazy(() => import('./user/FamilyManager'));
 import RequireAuth from './auth/RequireAuth';
 
 import { API_URL } from './config/api';
+import { Toaster, toast } from 'sonner';
 
 function PageHeader(){
   const navigate = useNavigate();
@@ -401,6 +402,7 @@ function Footer(){
 export default function App() {
   return (
     <AuthProvider>
+      <Toaster position="top-right" richColors closeButton />
       <AppContent />
     </AuthProvider>
   );
@@ -418,6 +420,7 @@ function AppContent() {
   const [activities, setActivities] = useState([]);
   const [payments, setPayments] = useState([]);
   const [news, setNews] = useState([]);
+  const [newsIndex, setNewsIndex] = useState(0);
   const [fixtures, setFixtures] = useState([]);
   const [services, setServices] = useState([]);
   const anchorRefs = {
@@ -433,11 +436,26 @@ function AppContent() {
   };
 
   useEffect(() => {
-    fetch(`${API_URL}/kpi`, { cache: 'no-store' }).then(r=>r.json()).then(d => setKpis(d || { memberships: 0, payments: 0, activities: 0 })).catch(()=>{});
-    fetch(`${API_URL}/activities`, { cache: 'no-store' }).then(r=>r.json()).then(d => setActivities(Array.isArray(d) ? d : [])).catch(()=>{});
-    fetch(`${API_URL}/payments`, { cache: 'no-store' }).then(r=>r.json()).then(d => setPayments(Array.isArray(d) ? d : [])).catch(()=>{});
-    fetch(`${API_URL}/fixtures`, { cache: 'no-store' }).then(r=>r.json()).then(d => setFixtures(Array.isArray(d) ? d : [])).catch(()=>{});
-    fetch(`${API_URL}/services`, { cache: 'no-store' }).then(r=>r.json()).then(d => setServices(Array.isArray(d) ? d : [])).catch(()=>{});
+    fetch(`${API_URL}/kpi`, { cache: 'no-store' })
+      .then(r=>r.json())
+      .then(d => setKpis(d || { memberships: 0, payments: 0, activities: 0 }))
+      .catch(()=>{ toast.error('No se pudieron cargar indicadores'); });
+    fetch(`${API_URL}/activities`, { cache: 'no-store' })
+      .then(r=>r.json())
+      .then(d => setActivities(Array.isArray(d) ? d : []))
+      .catch(()=>{ toast.error('No se pudieron cargar actividades'); });
+    fetch(`${API_URL}/payments`, { cache: 'no-store' })
+      .then(r=>r.json())
+      .then(d => setPayments(Array.isArray(d) ? d : []))
+      .catch(()=>{ toast.error('No se pudieron cargar pagos'); });
+    fetch(`${API_URL}/fixtures`, { cache: 'no-store' })
+      .then(r=>r.json())
+      .then(d => setFixtures(Array.isArray(d) ? d : []))
+      .catch(()=>{ toast.error('No se pudieron cargar partidos'); });
+    fetch(`${API_URL}/services`, { cache: 'no-store' })
+      .then(r=>r.json())
+      .then(d => setServices(Array.isArray(d) ? d : []))
+      .catch(()=>{ toast.error('No se pudieron cargar servicios'); });
   }, []);
 
   // Refrescar noticias al navegar a inicio o noticias para reflejar cambios del admin
@@ -449,9 +467,19 @@ function AppContent() {
          .catch(e => {
            console.error("Error fetching news:", e);
            setNews([]);
+           toast.error('No se pudieron cargar las noticias');
          });
     }
   }, [location.pathname]);
+
+  useEffect(() => {
+    if ((news || []).length > 1) {
+      const id = setInterval(() => {
+        setNewsIndex(i => ((i + 1) % (news || []).length));
+      }, 6000);
+      return () => clearInterval(id);
+    }
+  }, [news]);
 
   const HomeContent = () => (
     <>
@@ -480,16 +508,31 @@ function AppContent() {
               </View>
               <View style={[styles.newsGridModern, isMobile && {flexDirection: 'column'}]}>
                 <View style={[styles.newsFeaturedCol, isMobile && {width: '100%', marginBottom: 16}]}>
-                  {(news||[])[0] && (
-                    <TouchableOpacity key={(news||[])[0].id} style={[styles.newsFeatured, isMobile && {height: 300}]} onPress={()=>navigate('/noticias')}>
-                      <ImageBackground source={{uri: (news||[])[0].image || '/assets/escuelita-1.jpg'}} style={styles.newsFeaturedBg} imageStyle={{borderRadius: 8}}>
+                  {(news||[])[newsIndex] && (
+                    <TouchableOpacity key={(news||[])[newsIndex].id} style={[styles.newsFeatured, isMobile && {height: 360}]} onPress={()=>navigate('/noticias')}>
+                      <ImageBackground source={{uri: (news||[])[newsIndex].image || '/assets/escuelita-1.jpg'}} style={styles.newsFeaturedBg} imageStyle={{borderRadius: 8}}>
                         <View style={styles.newsOverlay}>
                           <View style={styles.newsTag}><Text style={styles.newsTagText}>INSTITUCIONAL</Text></View>
-                          <Text style={[styles.newsFeaturedTitle, isMobile && {fontSize: 24}]}>{(news||[])[0].title}</Text>
-                          <Text style={styles.newsFeaturedExcerpt} numberOfLines={2}>{(news||[])[0].excerpt}</Text>
+                          <Text style={[styles.newsFeaturedTitle, isMobile && {fontSize: 26}]}>{(news||[])[newsIndex].title}</Text>
+                          <Text style={styles.newsFeaturedExcerpt} numberOfLines={2}>{(news||[])[newsIndex].excerpt}</Text>
                         </View>
                       </ImageBackground>
                     </TouchableOpacity>
+                  )}
+                  {(news||[]).length > 1 && (
+                    <>
+                      <TouchableOpacity style={[styles.carouselBtn, styles.carouselBtnLeft]} onPress={() => setNewsIndex(i => (i - 1 + (news||[]).length) % (news||[]).length)}>
+                        <Text style={styles.carouselBtnText}>‹</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity style={[styles.carouselBtn, styles.carouselBtnRight]} onPress={() => setNewsIndex(i => (i + 1) % (news||[]).length)}>
+                        <Text style={styles.carouselBtnText}>›</Text>
+                      </TouchableOpacity>
+                      <View style={styles.carouselDots}>
+                        {(news||[]).slice(0,6).map((_, i) => (
+                          <TouchableOpacity key={i} style={[styles.dot, i === newsIndex && styles.dotActive]} onPress={() => setNewsIndex(i)} />
+                        ))}
+                      </View>
+                    </>
                   )}
                 </View>
                 <View style={[styles.newsSecondaryGrid, isMobile && {width: '100%'}]}>
@@ -1112,7 +1155,7 @@ const styles = StyleSheet.create({
   // brandStripe duplicate removed
   brandBar: { height:16, width:'100%', flexDirection:'row' },
   brandStripe: { flex:1 },
-  brandLogo:{ width:60, height:72, resizeMode:'contain', marginRight:8, marginBottom:-10, zIndex:2 },
+  brandLogo:{ width:60, height:72, objectFit:'contain', marginRight:8, marginBottom:-10, zIndex:2 },
   brandTitleLg: { color:'#fff', fontWeight:'800', fontSize:18 },
   brandSubtitle: { color:'#c9c7de', fontSize:12 },
   headerActions: { flexDirection:'row', gap:10 },
@@ -1130,7 +1173,7 @@ const styles = StyleSheet.create({
   heroImgInner:{ objectFit:'cover' },
   heroOverlay:{ ...StyleSheet.absoluteFillObject, backgroundImage: 'linear-gradient(to top, #070571 0%, rgba(7,5,113,0.4) 50%, rgba(0,0,0,0.6) 100%)' },
   heroContent:{ paddingHorizontal:24, maxWidth: 1200, width: '100%', alignSelf: 'center' },
-  bannerTitle:{ color:'#ffffff', fontWeight:'900', fontSize: 64, textTransform:'uppercase', lineHeight: 64, marginBottom: 16, textShadow: '0 4px 10px rgba(0,0,0,0.5)' },
+  bannerTitle:{ color:'#ffffff', fontWeight:'900', fontSize: 64, textTransform:'uppercase', lineHeight: 64, marginBottom: 16, textShadow: '0px 4px 10px rgba(0,0,0,0.5)' },
   h1: { color:'#111827', fontSize:32, fontWeight:'800', letterSpacing: -0.5 },
   p: { color:'#4b5563', fontSize:16, lineHeight: 24 },
   row: { flexDirection:'row', gap:8, alignItems:'center', flexWrap:'wrap' },
@@ -1227,13 +1270,13 @@ const styles = StyleSheet.create({
     backgroundImage:'none',
     backgroundRepeat:'no-repeat',
     backgroundSize:'120% 160%',
-    backgroundPosition:'center -120px'
+    backgroundPosition: 'center'
   }
   ,bandTriNoticias:{
     backgroundImage:'none',
     backgroundRepeat:'no-repeat',
     backgroundSize:'cover',
-    backgroundPosition:'center top',
+    backgroundPosition:'center',
     backgroundColor:'transparent',
     padding:0,
     backgroundOrigin:'content-box',
@@ -1251,17 +1294,17 @@ const styles = StyleSheet.create({
   ,sectionTitleLarge:{ fontSize: 28, fontWeight: '900', color: '#111827', textTransform: 'uppercase', letterSpacing: -0.5, scrollMarginTop: 110 }
   ,linkText:{ color: '#049756', fontWeight: '700', fontSize: 14, textTransform: 'uppercase', letterSpacing: 1 }
   ,newsGridModern:{ flexDirection: 'row', gap: 24, paddingHorizontal: 24, flexWrap: 'wrap' }
-  ,newsFeaturedCol:{ flex: 2, minWidth: 300, height: 400 }
+  ,newsFeaturedCol:{ flex: 2, minWidth: 300, height: 420 }
   ,newsFeatured:{ flex: 1, borderRadius: 12, overflow: 'hidden', boxShadow: '0 10px 30px rgba(0,0,0,0.15)' }
   ,newsFeaturedBg:{ flex: 1, justifyContent: 'flex-end' }
   ,newsOverlay:{ padding: 24, backgroundImage: 'linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.4) 60%, transparent 100%)' }
   ,newsTag:{ backgroundColor: '#f42b29', alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 4, marginBottom: 12 }
   ,newsTagText:{ color: '#fff', fontSize: 10, fontWeight: '800', textTransform: 'uppercase' }
-  ,newsFeaturedTitle:{ color: '#fff', fontSize: 28, fontWeight: '800', lineHeight: 32, marginBottom: 8 }
+  ,newsFeaturedTitle:{ color: '#fff', fontSize: 32, fontWeight: '800', lineHeight: 38, marginBottom: 10 }
   ,newsFeaturedExcerpt:{ color: 'rgba(255,255,255,0.8)', fontSize: 16, lineHeight: 24 }
   ,newsSecondaryGrid:{ flex: 1, minWidth: 300, gap: 16 }
-  ,newsSecondaryCard:{ flexDirection: 'row', gap: 16, backgroundColor: '#fff', padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#e5e7eb', alignItems: 'center' }
-  ,newsSecondaryImg:{ width: 80, height: 80, borderRadius: 6, backgroundColor: '#f3f4f6' }
+  ,newsSecondaryCard:{ flexDirection: 'row', gap: 14, backgroundColor: '#fff', padding: 10, borderRadius: 8, borderWidth: 1, borderColor: '#e5e7eb', alignItems: 'center' }
+  ,newsSecondaryImg:{ width: 72, height: 72, borderRadius: 6, backgroundColor: '#f3f4f6' }
   ,newsSecondaryContent:{ flex: 1 }
   ,newsDate:{ color: '#6b7280', fontSize: 12, marginBottom: 4 }
   ,newsSecondaryTitle:{ color: '#111827', fontWeight: '700', fontSize: 14, lineHeight: 20 }
@@ -1310,7 +1353,7 @@ const styles = StyleSheet.create({
   ,infoBadgeText:{ color: '#374151', fontSize: 13, fontWeight: '600' }
   
   ,activityItemCard:{ flexDirection: 'row', backgroundColor: '#fff', borderRadius: 12, overflow: 'hidden', borderBottomWidth: 1, borderColor: '#e5e7eb', alignItems: 'center' }
-  ,activityItemImg:{ width: 120, height: 120 }
+  ,activityItemImg:{ width: 96, height: 96 }
   ,activityItemContent:{ flex: 1, padding: 24, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }
   ,activityItemTitle:{ fontSize: 20, fontWeight: '700', color: '#111827' }
   ,activityItemInfo:{ color: '#6b7280', fontSize: 14 }
@@ -1375,7 +1418,7 @@ const styles = StyleSheet.create({
   ,pillModernActive:{ backgroundColor: '#070571', borderColor: '#070571' }
   ,pillTextModern:{ color: '#374151', fontWeight: '600' }
   ,pillTextModernActive:{ color: '#fff' }
-  ,socialIconImg:{ width: 24, height: 24, resizeMode: 'contain' }
+  ,socialIconImg:{ width: 24, height: 24, objectFit: 'contain' }
   ,inputCurrencyWrapper:{ flexDirection:'row', alignItems:'center', paddingVertical:0, paddingHorizontal:0, overflow:'hidden', backgroundColor: '#f9fafb', borderWidth: 1, borderColor: '#d1d5db', borderRadius: 8, marginBottom: 20 }
   ,currencySymbol:{ backgroundColor:'#e5e7eb', paddingHorizontal:16, paddingVertical:14, justifyContent:'center' }
   ,currencyText:{ fontWeight:'800', color:'#374151' }
@@ -1397,7 +1440,7 @@ const styles = StyleSheet.create({
    ,authLink: { textAlign: 'center', color: '#049756', fontWeight: '600' }
    ,authContainer: { maxWidth: 480, alignSelf: 'center', width: '100%' }
    ,profileEmoji: { fontSize: 20 }
-  ,dropdown: { position: 'absolute', top: '100%', left: -20, backgroundColor: '#070571', paddingVertical: 0, shadowColor: '#000', shadowOffset: {width:0, height:8}, shadowOpacity: 0.4, shadowRadius: 12, elevation: 10, zIndex: 2000, minWidth: 240, borderTopWidth: 4, borderColor: '#f42b29', borderRadius: 4 }
+  ,dropdown: { position: 'absolute', top: '100%', left: -20, backgroundColor: '#070571', paddingVertical: 0, boxShadow: '0px 8px 12px rgba(0,0,0,0.4)', elevation: 10, zIndex: 2000, minWidth: 240, borderTopWidth: 4, borderColor: '#f42b29', borderRadius: 4 }
   ,dropdownItem: { paddingVertical: 16, paddingHorizontal: 24, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.1)', backgroundColor: 'transparent' }
   ,dropdownItemText: { color: '#fff', fontSize: 14, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1 }
   ,inputGroup: { marginBottom: 20, position: 'relative' }

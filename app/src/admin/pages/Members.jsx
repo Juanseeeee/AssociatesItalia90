@@ -45,25 +45,33 @@ const Members = () => {
     method: 'cash',
     concept: 'Cuota Social'
   });
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [emailFilter, setEmailFilter] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
 
   useEffect(() => {
-    fetchMembers();
+    const controller = new AbortController();
+    fetchMembers(controller.signal);
+    return () => controller.abort();
   }, []);
 
-  const fetchMembers = async () => {
+  const fetchMembers = async (signal) => {
     setLoading(true);
     try {
       const token = localStorage.getItem('admin_token');
       const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
 
-      const response = await fetch(`${API}/members`, { headers });
+      const response = await fetch(`${API}/members`, { headers, signal });
       if (!response.ok) throw new Error('Error al cargar socios');
       
       const data = await response.json();
       setMembers(Array.isArray(data) ? data : []);
     } catch (error) {
-      console.error(error);
-      toast.error('No se pudieron cargar los socios');
+      if (error.name !== 'AbortError') {
+        console.error(error);
+        toast.error('No se pudieron cargar los socios');
+      }
       setMembers([]);
     } finally {
       setLoading(false);
@@ -79,12 +87,30 @@ const Members = () => {
         (member.dni || '').includes(filter)
       );
       
+      const matchesEmail = emailFilter
+        ? (member.email || '').toLowerCase().includes(emailFilter.toLowerCase())
+        : true;
+      
+      const createdAt = member.created_at ? new Date(member.created_at) : null;
+      const fromOk = dateFrom ? (createdAt ? createdAt >= new Date(dateFrom) : false) : true;
+      const toOk = dateTo ? (createdAt ? createdAt <= new Date(dateTo) : false) : true;
+      
       const matchesStatus = status === 'all' || member.status === status;
       const matchesPayment = paymentStatus === 'all' || member.payment_status === paymentStatus;
       
-      return matchesSearch && matchesStatus && matchesPayment;
+      return matchesSearch && matchesEmail && fromOk && toOk && matchesStatus && matchesPayment;
     });
-  }, [members, filter, status, paymentStatus]);
+  }, [members, filter, emailFilter, dateFrom, dateTo, status, paymentStatus]);
+  
+  const clearFilters = () => {
+    setFilter('');
+    setEmailFilter('');
+    setDateFrom('');
+    setDateTo('');
+    setStatus('all');
+    setPaymentStatus('all');
+    setPage(1);
+  };
 
   const handleExportCSV = () => {
     if (filteredMembers.length === 0) {
@@ -92,11 +118,11 @@ const Members = () => {
       return;
     }
 
-    const headers = ['ID', 'Nombre', 'Email', 'Teléfono', 'DNI', 'Estado', 'Pago', 'Tipo', 'Último Pago'];
+    const headers = ['N° Socio', 'Nombre', 'Email', 'Teléfono', 'DNI', 'Estado', 'Pago', 'Tipo', 'Último Pago'];
     const csvContent = [
       headers.join(','),
       ...filteredMembers.map(m => [
-        m.id,
+        m.membership_number || '',
         `"${m.name || ''}"`,
         m.email,
         m.phone || '',
@@ -233,57 +259,96 @@ const Members = () => {
   };
 
   const handleNotifyDebt = async (member) => {
-    if (!window.confirm(`¿Enviar notificación de deuda a ${member.email}?`)) return;
-
     const token = localStorage.getItem('admin_token');
     if (!token) {
       toast.error('Sesión expirada');
       return;
     }
-
-    const toastId = toast.loading('Enviando notificación...');
-
-    try {
-      const res = await fetch(`${API}/notify`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ memberId: member.id, type: 'debt_reminder' })
-      });
-
-      if (res.ok) {
-        toast.success(`Notificación enviada a ${member.email}`, { id: toastId });
-      } else {
-        throw new Error('Error en el envío');
-      }
-    } catch (error) {
-      toast.error('Error al enviar la notificación', { id: toastId });
-    }
+    toast.warning(`¿Enviar notificación de deuda a ${member.email}?`, {
+      action: {
+        label: 'Enviar',
+        onClick: async () => {
+          const toastId = toast.loading('Enviando notificación...');
+          try {
+            const res = await fetch(`${API}/notify`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+              },
+              body: JSON.stringify({ memberId: member.id, type: 'debt_reminder' })
+            });
+            if (res.ok) {
+              toast.success(`Notificación enviada a ${member.email}`, { id: toastId });
+            } else {
+              throw new Error('Error en el envío');
+            }
+          } catch (error) {
+            toast.error('Error al enviar la notificación', { id: toastId });
+          }
+        }
+      },
+      cancel: { label: 'Cancelar' }
+    });
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('¿Estás seguro de eliminar este socio? Esta acción no se puede deshacer.')) return;
-
     const token = localStorage.getItem('admin_token');
-    const toastId = toast.loading('Eliminando socio...');
-
-    try {
-        const res = await fetch(`${API}/members/${id}`, {
-            method: 'DELETE',
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-
-        if (res.ok) {
-            toast.success('Socio eliminado correctamente', { id: toastId });
-            setMembers(members.filter(m => m.id !== id));
-        } else {
-            throw new Error('Error al eliminar');
+    toast.warning('¿Eliminar este socio? Esta acción no se puede deshacer.', {
+      action: {
+        label: 'Eliminar',
+        onClick: async () => {
+          const toastId = toast.loading('Eliminando socio...');
+          try {
+              const res = await fetch(`${API}/members/${id}`, {
+                  method: 'DELETE',
+                  headers: { 'Authorization': `Bearer ${token}` }
+              });
+              if (res.ok) {
+                  toast.success('Socio eliminado correctamente', { id: toastId });
+                  setMembers(members.filter(m => m.id !== id));
+              } else {
+                  throw new Error('Error al eliminar');
+              }
+          } catch (error) {
+              toast.error('Error al eliminar socio', { id: toastId });
+          }
         }
-    } catch (error) {
-        toast.error('Error al eliminar socio', { id: toastId });
-    }
+      },
+      cancel: { label: 'Cancelar' }
+    });
+  };
+
+  const handleToggleActive = async (member) => {
+    const token = localStorage.getItem('admin_token');
+    const nextStatus = member.status === 'inactive' ? 'active' : 'inactive';
+    toast.warning(`¿${nextStatus === 'active' ? 'Activar' : 'Desactivar'} al socio ${member.name}?`, {
+      action: {
+        label: nextStatus === 'active' ? 'Activar' : 'Desactivar',
+        onClick: async () => {
+          const toastId = toast.loading('Actualizando estado...');
+          try {
+            const res = await fetch(`${API}/members/${member.id}`, {
+              method: 'PUT',
+              headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}` 
+              },
+              body: JSON.stringify({ status: nextStatus })
+            });
+            if (res.ok) {
+              toast.success('Estado actualizado', { id: toastId });
+              setMembers(prev => prev.map(m => m.id === member.id ? { ...m, status: nextStatus } : m));
+            } else {
+              throw new Error('Error al actualizar estado');
+            }
+          } catch (error) {
+            toast.error('Error al actualizar estado', { id: toastId });
+          }
+        }
+      },
+      cancel: { label: 'Cancelar' }
+    });
   };
 
   // Pagination Logic
@@ -353,23 +418,25 @@ const Members = () => {
       </div>
 
       <div className="card">
-        <div className="flex flex-col md:flex-row gap-4 items-center justify-between mb-6">
-          <div className="search-wrapper w-full md:w-auto">
+        <div className="toolbar">
+          <div className="toolbar-line">
+            <div className="search-wrapper">
             <Search className="search-icon" size={18} />
             <input 
               type="text" 
-              className="input w-full min-h-[48px]" 
+              className="input w-full" 
               placeholder="Buscar por nombre, email o teléfono..." 
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
             />
-          </div>
-          <div className="flex flex-col md:flex-row items-center gap-2 w-full md:w-auto">
-            <div className="hidden md:block">
-              <Filter size={18} className="text-[var(--text-muted)]" />
             </div>
+            <button className="btn btn-outline" title="Filtros avanzados" aria-label="Abrir filtros avanzados" onClick={() => setAdvancedOpen(v => !v)}>
+            <Filter size={18} className="text-[var(--text-muted)]" />
+          </button>
+          </div>
+          <div className="filters-inline">
             <select 
-              className="input w-full md:w-48 min-h-[48px]"
+              className="input"
               value={status}
               onChange={(e) => setStatus(e.target.value)}
             >
@@ -378,9 +445,8 @@ const Members = () => {
               <option value="inactive">Inactivo</option>
               <option value="pending_payment">Pendiente Pago</option>
             </select>
-            
             <select 
-              className="input w-full md:w-48 min-h-[48px]"
+              className="input"
               value={paymentStatus}
               onChange={(e) => setPaymentStatus(e.target.value)}
             >
@@ -391,12 +457,50 @@ const Members = () => {
             </select>
           </div>
         </div>
+        {advancedOpen && (
+          <div className="advanced-filters-grid mb-6">
+            <div>
+              <label className="label" htmlFor="emailFilter">Email</label>
+              <input
+                id="emailFilter"
+                type="email"
+                className="input w-full"
+                placeholder="Filtrar por email"
+                value={emailFilter}
+                onChange={e => setEmailFilter(e.target.value)}
+                aria-label="Filtro por email"
+              />
+            </div>
+            <div>
+              <label className="label" htmlFor="dateFrom">Fecha desde</label>
+              <input
+                id="dateFrom"
+                type="date"
+                className="input w-full"
+                value={dateFrom}
+                onChange={e => setDateFrom(e.target.value)}
+                aria-label="Filtro fecha desde"
+              />
+            </div>
+            <div>
+              <label className="label" htmlFor="dateTo">Fecha hasta</label>
+              <input
+                id="dateTo"
+                type="date"
+                className="input w-full"
+                value={dateTo}
+                onChange={e => setDateTo(e.target.value)}
+                aria-label="Filtro fecha hasta"
+              />
+            </div>
+          </div>
+        )}
 
       <div className="table-container shadow-none border-0">
           <table className="table">
             <thead>
               <tr>
-                <th className="hidden lg:table-cell">ID</th>
+                <th className="hidden lg:table-cell">N° Socio</th>
                 <th>Socio</th>
                 <th>Estado</th>
                 <th>Pago</th>
@@ -427,7 +531,7 @@ const Members = () => {
                     className="group animate-slide-up"
                     style={{ animationDelay: `${index * 30}ms` }}
                   >
-                    <td className="font-mono text-xs text-[var(--text-muted)] hidden lg:table-cell">#{member.id}</td>
+                    <td className="font-mono text-xs text-[var(--text-muted)] hidden lg:table-cell">#{member.membership_number || '-'}</td>
                     <td>
                       <div className="flex flex-col">
                         <span className="font-medium text-[var(--text)]">{member.name}</span>
@@ -458,7 +562,7 @@ const Members = () => {
                       </span>
                     </td>
                     <td className="text-right">
-                      <div className="flex items-center justify-end gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-200">
+                      <div className="actions-inline min-w-[200px] opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-200">
                         <button 
                           className="btn-icon btn-icon-success"
                           onClick={() => handleOpenPaymentModal(member)}
@@ -477,13 +581,23 @@ const Members = () => {
                           className="btn-icon btn-icon-accent"
                           onClick={() => handleOpenModal(member)}
                           title="Editar socio"
+                          aria-label="Editar socio"
                         >
                           <Edit size={16} />
+                        </button>
+                        <button
+                          className="btn-icon btn-icon-outline"
+                          onClick={() => handleToggleActive(member)}
+                          title={member.status === 'inactive' ? 'Activar socio' : 'Desactivar socio'}
+                          aria-label={member.status === 'inactive' ? 'Activar socio' : 'Desactivar socio'}
+                        >
+                          {member.status === 'inactive' ? <CheckCircle size={16} /> : <XCircle size={16} />}
                         </button>
                         <button 
                           className="btn-icon btn-icon-destructive"
                           onClick={() => handleDelete(member.id)}
                           title="Eliminar socio"
+                          aria-label="Eliminar socio"
                         >
                           <Trash2 size={16} />
                         </button>

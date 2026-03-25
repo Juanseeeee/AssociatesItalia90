@@ -10,7 +10,29 @@ export const getAllMembers = async (req, res) => {
       .order('created_at', { ascending: false });
 
     if (error) throw error;
-    res.json(data);
+    
+    // Process members to ensure name is populated
+    const processedData = data.map(member => {
+        const fullName = member.name || `${member.first_name || ''} ${member.last_name || ''}`.trim() || 'Socio';
+        
+        // Determine payment status based on expiration date
+        let payment_status = member.payment_status || 'unknown';
+        if (!member.payment_status && member.expiration_date) {
+            const isExpired = new Date(member.expiration_date) < new Date();
+            payment_status = isExpired ? 'pending' : 'completed';
+        }
+
+        return {
+            ...member,
+            name: fullName,
+            status: member.status || member.membership_status || 'disabled',
+            expiration_date: member.expiration_date || member.expiration || null,
+            payment_status,
+            last_payment_date: member.last_payment_date || member.last_payment // Fallback for UI
+        };
+    });
+
+    res.json(processedData);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -37,7 +59,7 @@ export const getMemberCard = async (req, res) => {
       id: member.id,
       name: fullName,
       category: member.category || member.member_type || 'Socio',
-      status: member.status,
+      status: member.status || member.membership_status,
       joinedAt: member.joined_at,
       expiration: member.expiration_date || member.expiration, // Handle both naming conventions
       photo: member.photo_url || member.photo, // Handle photo_url vs photo
@@ -83,13 +105,11 @@ export const processManualPayment = async (req, res) => {
     baseDate.setMonth(baseDate.getMonth() + 1);
 
     await supabase.from('memberships').update({
-        status: 'active',
-        payment_status: 'completed',
-        last_payment_date: new Date().toISOString(),
-        expiration_date: baseDate.toISOString(),
-        payment_method: method || 'manual',
-        payment_id: nanoid()
-    }).eq('id', id);
+          status: 'active',
+          last_payment: new Date().toISOString(),
+          expiration_date: baseDate.toISOString(),
+          payment_info: { method: method || 'manual' }
+      }).eq('id', id);
 
     // 3. Record Payment
     const payment = {

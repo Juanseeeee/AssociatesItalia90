@@ -47,6 +47,7 @@ const validateActivity = (values) => {
     const [activities, setActivities] = useState([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState('');
+  const [cols, setCols] = useState(3);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [enrollmentsModalOpen, setEnrollmentsModalOpen] = useState(false);
     const [editingActivity, setEditingActivity] = useState(null);
@@ -216,26 +217,31 @@ const validateActivity = (values) => {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('¿Estás seguro de eliminar esta actividad?')) return;
-
     const token = localStorage.getItem('admin_token');
-    try {
-      const res = await fetch(`${API}/activities/${id}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`
+    toast.warning('¿Eliminar esta actividad? Esta acción no se puede deshacer.', {
+      action: {
+        label: 'Eliminar',
+        onClick: async () => {
+          try {
+            const res = await fetch(`${API}/activities/${id}`, {
+              method: 'DELETE',
+              headers: {
+                'Authorization': `Bearer ${token}`
+              }
+            });
+            if (res.ok) {
+              toast.success('Actividad eliminada');
+              fetchActivities();
+            } else {
+              throw new Error('Error al eliminar');
+            }
+          } catch (error) {
+            toast.error('Error al eliminar la actividad');
+          }
         }
-      });
-
-      if (res.ok) {
-        toast.success('Actividad eliminada');
-        fetchActivities();
-      } else {
-        throw new Error('Error al eliminar');
-      }
-    } catch (error) {
-      toast.error('Error al eliminar la actividad');
-    }
+      },
+      cancel: { label: 'Cancelar' }
+    });
   };
 
   const onSubmit = async (values) => {
@@ -366,19 +372,30 @@ const validateActivity = (values) => {
       </div>
 
       <div className="card">
-        <div className="search-wrapper w-full">
-          <Search className="search-icon" size={18} />
-          <input 
-            type="text" 
-            className="input w-full min-h-[48px]" 
-            placeholder="Buscar actividad..." 
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-          />
+        <div className="toolbar">
+          <div className="toolbar-line">
+            <div className="search-wrapper w-full">
+              <Search className="search-icon" size={18} />
+              <input 
+                type="text" 
+                className="input w-full min-h-[44px]" 
+                placeholder="Buscar actividad..." 
+                value={filter}
+                onChange={(e) => setFilter(e.target.value)}
+              />
+            </div>
+            <div className="layout-toggle">
+              <label className="label hidden sm:inline">Vista</label>
+              <select className="input" value={cols} onChange={(e) => setCols(Number(e.target.value))}>
+                <option value={3}>3 por fila</option>
+                <option value={4}>4 por fila</option>
+              </select>
+            </div>
+          </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className={`cards-grid ${cols === 4 ? 'cols-4' : 'cols-3'}`}>
         {loading ? (
           <>
             <SkeletonCard />
@@ -400,7 +417,7 @@ const validateActivity = (values) => {
               className="card overflow-hidden flex flex-col h-full hover-card p-0 animate-slide-up"
               style={{ animationDelay: `${index * 50}ms` }}
             >
-          <div className="relative h-48 overflow-hidden group">
+          <div className="card-thumb relative overflow-hidden group">
             {activity.image || formData.previewUrl ? (
               <img 
                 src={activity.image?.startsWith('http') ? activity.image : `${API.replace('/api', '')}${activity.image}`} 
@@ -426,7 +443,7 @@ const validateActivity = (values) => {
             )}
           </div>
 
-          <div className="p-5 flex-1 flex flex-col">
+          <div className="p-4 flex-1 flex flex-col">
             <h3 className="text-lg font-bold mb-2 text-[var(--text)] group-hover:text-[var(--primary)] transition-colors">{activity.name}</h3>
             
             <div className="space-y-2 mb-4 flex-1">

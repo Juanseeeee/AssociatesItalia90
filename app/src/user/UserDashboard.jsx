@@ -1,23 +1,24 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { 
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, 
-  ActivityIndicator, Platform, useWindowDimensions, Animated, 
-  ImageBackground, Pressable, TextInput, Modal
+import {
+  View, Text, StyleSheet, ScrollView, TouchableOpacity,
+  ActivityIndicator, Platform, useWindowDimensions, Animated,
+  Pressable, TextInput, Modal
 } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Home, IdCard, CreditCard, Dumbbell, Users, Download, Calendar, FileText } from 'lucide-react';
 import DigitalID from '../components/DigitalID';
 import { API_URL } from '../config/api';
 
-// Imagen cuidadosamente seleccionada de Freepik para complementar la estética deportiva y profesional del club
-const HERO_BG = 'https://img.freepik.com/free-photo/soccer-stadium-night-with-bright-lights-green-grass_181624-58586.jpg';
+// Fondo del hero con el logo del club
+const HERO_BG = '/logo-italia90.png';
 
 const TABS = [
-    { id: 'overview', label: 'Resumen', icon: '🏠' },
-    { id: 'id', label: 'Mi Carnet', icon: '🆔' },
-    { id: 'payments', label: 'Mis Pagos', icon: '💳' },
-    { id: 'activities', label: 'Actividades', icon: '⚽' },
-    { id: 'family', label: 'Grupo Familiar', icon: '👨‍👩‍👧‍👦' },
+    { id: 'overview', label: 'Resumen', icon: <Home size={16} /> },
+    { id: 'id', label: 'Mi Carnet', icon: <IdCard size={16} /> },
+    { id: 'payments', label: 'Mis Pagos', icon: <CreditCard size={16} /> },
+    { id: 'activities', label: 'Actividades', icon: <Dumbbell size={16} /> },
+    { id: 'family', label: 'Grupo Familiar', icon: <Users size={16} /> },
   ];
 
 const UserDashboard = () => {
@@ -34,6 +35,15 @@ const UserDashboard = () => {
   const [loadingActivities, setLoadingActivities] = useState(false);
   const [enrollments, setEnrollments] = useState([]);
   const [activeTab, setActiveTab] = useState('overview');
+  const [showReceiptModal, setShowReceiptModal] = useState(false);
+  const [selectedPayment, setSelectedPayment] = useState(null);
+  const receiptRef = useRef(null);
+  const downloadReceiptPDF = (payment) => {
+    const idOrExt = payment?.external_id || payment?.id;
+    if (!idOrExt) return;
+    const url = `${API_URL}/payments/${idOrExt}/receipt`;
+    window.open(url, '_blank');
+  };
   
   // Modals state
   const [showFamilyModal, setShowFamilyModal] = useState(false);
@@ -72,6 +82,10 @@ const UserDashboard = () => {
     if (status) {
       if (status === 'approved') {
         alert('¡Pago exitoso! Tu estado se ha actualizado.');
+        if (user?.id) {
+          fetchMemberData();
+          fetchEnrollments();
+        }
       } else if (status === 'failure' || status === 'rejected') {
         alert('El pago fue rechazado. Por favor intentá nuevamente.');
       } else if (status === 'pending' || status === 'in_process') {
@@ -79,7 +93,7 @@ const UserDashboard = () => {
       }
       window.history.replaceState({}, document.title, window.location.pathname);
     }
-  }, [searchParams]);
+  }, [searchParams, user]);
 
   useEffect(() => {
     const tab = searchParams.get('tab');
@@ -103,6 +117,17 @@ const UserDashboard = () => {
     }
   }, [searchParams, activities, navigate]);
 
+  // Handle Enter key for Enroll Modal
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Enter' && showEnrollModal) {
+        handleEnroll();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showEnrollModal, selectedActivity, enrollMemberId]);
+
   useEffect(() => {
     if (user?.id) {
       fetchMemberData();
@@ -114,10 +139,15 @@ const UserDashboard = () => {
   }, [user]);
 
   useEffect(() => {
+    // Ensure global exists for React Native Web animations
+    if (typeof window !== 'undefined' && window.global === undefined) {
+      window.global = window;
+    }
+
     Animated.timing(fadeAnim, {
       toValue: 1,
       duration: 800,
-      useNativeDriver: true,
+      useNativeDriver: false,
     }).start();
 
     // Pulse animation for skeletons
@@ -126,12 +156,12 @@ const UserDashboard = () => {
         Animated.timing(skeletonPulseAnim, {
           toValue: 1,
           duration: 1000,
-          useNativeDriver: true,
+          useNativeDriver: false,
         }),
         Animated.timing(skeletonPulseAnim, {
           toValue: 0.5,
           duration: 1000,
-          useNativeDriver: true,
+          useNativeDriver: false,
         })
       ])
     );
@@ -146,8 +176,8 @@ const UserDashboard = () => {
   const changeTab = (tabId) => {
     if (activeTab === tabId) return;
     Animated.sequence([
-      Animated.timing(contentFadeAnim, { toValue: 0, duration: 150, useNativeDriver: true }),
-      Animated.timing(contentFadeAnim, { toValue: 1, duration: 250, useNativeDriver: true })
+      Animated.timing(contentFadeAnim, { toValue: 0, duration: 150, useNativeDriver: false }),
+      Animated.timing(contentFadeAnim, { toValue: 1, duration: 250, useNativeDriver: false })
     ]).start();
     setTimeout(() => setActiveTab(tabId), 150);
   };
@@ -350,9 +380,43 @@ const UserDashboard = () => {
       });
 
       if (res.ok) {
-        alert('Inscripción exitosa!');
-        setShowEnrollModal(false);
-        fetchEnrollments();
+        const data = await res.json();
+        
+        // Find selected member details
+        let selectedMemberName = '';
+        let selectedMemberDni = '';
+        if (enrollMemberId === user?.id) {
+          const fName = user?.first_name || user?.firstName || '';
+          const lName = user?.last_name || user?.lastName || '';
+          selectedMemberName = `${fName} ${lName}`.trim() || user?.name || '';
+          selectedMemberDni = user?.dni || '';
+        } else {
+          const f = family.find(f => f.id === enrollMemberId);
+          if (f) {
+            const fName = f.first_name || f.firstName || '';
+            const lName = f.last_name || f.lastName || '';
+            selectedMemberName = `${fName} ${lName}`.trim() || f.name || '';
+            selectedMemberDni = f.dni || '';
+          }
+        }
+
+        if (selectedActivity.cost > 0) {
+          setShowEnrollModal(false);
+          navigate('/pagos', { 
+            state: { 
+              concept: `Inscripción - ${selectedActivity.name}`, 
+              amount: selectedActivity.cost, 
+              enrollment_id: data.id,
+              email: user.email,
+              memberName: selectedMemberName,
+              memberDni: selectedMemberDni
+            } 
+          });
+        } else {
+          alert('Inscripción exitosa!');
+          setShowEnrollModal(false);
+          fetchEnrollments();
+        }
       } else {
         const err = await res.json();
         alert(err.error || 'Error al inscribirse');
@@ -450,7 +514,12 @@ const UserDashboard = () => {
   };
 
   const renderHero = () => (
-    <ImageBackground source={{ uri: HERO_BG }} style={styles.heroBackground} imageStyle={{ opacity: 0.8 }}>
+    <View style={styles.heroBackground}>
+      <img 
+        src={HERO_BG} 
+        alt="Hero Background" 
+        style={{ position: 'absolute', width: '100%', height: '100%', objectFit: 'contain', opacity: 1 }} 
+      />
       <View style={styles.heroOverlay} />
       <View style={styles.heroContent}>
         <View style={styles.heroHeaderRow}>
@@ -484,7 +553,7 @@ const UserDashboard = () => {
           </View>
         </View>
       </View>
-    </ImageBackground>
+    </View>
   );
 
   const renderNavTabs = () => (
@@ -498,7 +567,7 @@ const UserDashboard = () => {
             accessibilityRole="tab"
             accessibilityState={{ selected: activeTab === tab.id }}
           >
-            <Text style={styles.navTabIcon}>{tab.icon}</Text>
+            <View style={styles.navTabIcon}>{tab.icon}</View>
             <Text style={[styles.navTabText, activeTab === tab.id && styles.navTabTextActive]}>
               {tab.label}
             </Text>
@@ -553,32 +622,32 @@ const UserDashboard = () => {
           )}
         </View>
 
-        <View style={styles.card}>
+          <View style={styles.card}>
           <View style={styles.cardHeaderRow}>
             <Text style={styles.cardTitle}>Accesos Rápidos</Text>
           </View>
           <View style={styles.quickActionsGrid}>
-            <TouchableOpacity style={styles.actionTile} onPress={() => navigate('/activities')} accessibilityRole="button" accessibilityLabel="Ir a Actividades">
+            <TouchableOpacity style={styles.actionTile} onPress={() => changeTab('activities')} accessibilityRole="button" accessibilityLabel="Ir a Actividades">
               <View style={[styles.actionIconBg, { backgroundColor: '#eff6ff' }]}>
-                <Text style={styles.actionTileIcon}>⚽</Text>
+                <View style={styles.actionTileIcon}><Dumbbell size={18} /></View>
               </View>
               <Text style={styles.actionTileLabel}>Actividades</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.actionTile} onPress={() => changeTab('id')} accessibilityRole="button" accessibilityLabel="Ver mi carnet">
               <View style={[styles.actionIconBg, { backgroundColor: '#f5f3ff' }]}>
-                <Text style={styles.actionTileIcon}>📱</Text>
+                <View style={styles.actionTileIcon}><IdCard size={18} /></View>
               </View>
               <Text style={styles.actionTileLabel}>Ver Carnet</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.actionTile} onPress={() => alert('Próximamente: Reservas')} accessibilityRole="button" accessibilityLabel="Ir a Canchas">
               <View style={[styles.actionIconBg, { backgroundColor: '#f0fdf4' }]}>
-                <Text style={styles.actionTileIcon}>🏟️</Text>
+                <View style={styles.actionTileIcon}><Calendar size={18} /></View>
               </View>
               <Text style={styles.actionTileLabel}>Canchas</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.actionTile} onPress={() => alert('Próximamente: Tienda')} accessibilityRole="button" accessibilityLabel="Ir a Tienda">
               <View style={[styles.actionIconBg, { backgroundColor: '#fffbeb' }]}>
-                <Text style={styles.actionTileIcon}>👕</Text>
+                <View style={styles.actionTileIcon}><Users size={18} /></View>
               </View>
               <Text style={styles.actionTileLabel}>Tienda</Text>
             </TouchableOpacity>
@@ -614,7 +683,10 @@ const UserDashboard = () => {
         <DigitalID member={memberData} />
         <View style={styles.idActions}>
           <TouchableOpacity style={styles.outlineBtn} onPress={() => alert('Descargando carnet...')} accessibilityRole="button" accessibilityLabel="Guardar carnet como imagen">
-            <Text style={styles.outlineBtnText}>⬇️ Guardar como imagen</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <Download size={16} color="#475569" />
+              <Text style={styles.outlineBtnText}>Guardar como imagen</Text>
+            </View>
           </TouchableOpacity>
           <Text style={styles.helperText}>Este carnet es personal e intransferible.</Text>
         </View>
@@ -634,7 +706,16 @@ const UserDashboard = () => {
       
       {paymentHistory.length > 0 ? (
         <View style={styles.listContainer}>
-          {paymentHistory.map((payment) => (
+          {paymentHistory.map((payment) => {
+            const dt = payment.ts || payment.created_at || payment.date;
+            const paidAt = dt ? new Date(dt).toLocaleDateString('es-AR') : '—';
+            const paidAtFull = dt ? new Date(dt).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' }) : '—';
+            const methodRaw = payment.payment_method || payment.method;
+            const methodLabel = methodRaw === 'mercadopago' ? 'Mercado Pago' 
+              : methodRaw === 'credit_card_simulated' ? 'Tarjeta'
+              : methodRaw === 'manual' ? 'Manual'
+              : 'Otro';
+            return (
             <View key={payment.id} style={styles.listItem}>
               <View style={styles.listIconBox}>
                 <Text style={styles.listIcon}>🧾</Text>
@@ -642,17 +723,28 @@ const UserDashboard = () => {
               <View style={styles.listInfo}>
                 <Text style={styles.listTitle}>{payment.concept || 'Cuota Social'}</Text>
                 <Text style={styles.listSubtitle}>
-                  {new Date(payment.date).toLocaleDateString()} • {payment.method === 'credit_card' ? 'Tarjeta' : 'Efectivo'}
+                  {paidAt} • {methodLabel}
                 </Text>
               </View>
               <View style={styles.listRight}>
                 <Text style={styles.listAmount}>${payment.amount.toLocaleString()}</Text>
                 <View style={styles.statusPillSmall}>
-                  <Text style={styles.statusPillText}>APROBADO</Text>
+                  <Text style={styles.statusPillText}>{(payment.status || 'aprobado').toUpperCase()}</Text>
                 </View>
+                <TouchableOpacity 
+                  style={[styles.primaryBtnSmall, { marginTop: 8 }]} 
+                  onPress={() => { setSelectedPayment({ ...payment, paidAtFull, methodLabel }); setShowReceiptModal(true); }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Ver comprobante"
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <FileText size={16} color="#2563eb" />
+                    <Text style={styles.primaryBtnSmallText}>Comprobante</Text>
+                  </View>
+                </TouchableOpacity>
               </View>
             </View>
-          ))}
+          )})}
         </View>
       ) : (
         <View style={styles.emptyState}>
@@ -677,7 +769,7 @@ const UserDashboard = () => {
         <ActivityIndicator color="#070571" style={{ marginVertical: 40 }} />
       ) : activities.length === 0 ? (
         <View style={styles.emptyState}>
-          <Text style={styles.emptyIcon}>⚽</Text>
+          <View style={styles.emptyIcon}><Dumbbell size={28} /></View>
           <Text style={styles.emptyTitle}>Sin actividades</Text>
           <Text style={styles.emptyText}>No hay actividades disponibles en este momento.</Text>
         </View>
@@ -685,15 +777,20 @@ const UserDashboard = () => {
         <View style={styles.gridContainer}>
           {activities.map((activity) => (
             <View key={activity.id} style={styles.activityCard}>
-              <ImageBackground 
-                source={{ uri: activity.image || 'https://via.placeholder.com/400x200?text=Actividad' }} 
-                style={styles.activityImage}
-                imageStyle={{ borderRadius: 12 }}
-              >
+              <View style={[styles.activityImage, { position: 'relative', overflow: 'hidden' }]}>
+                <img 
+                  src={activity.image 
+                    ? (activity.image.startsWith('http') 
+                        ? activity.image 
+                        : `${API_URL.replace('/api', '')}${activity.image.startsWith('/') ? '' : '/'}${activity.image}`)
+                    : '/assets/default-activity.jpg'} 
+                  alt={activity.name}
+                  style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 12 }} 
+                />
                 <View style={styles.activityOverlay}>
                   <Text style={styles.activityTitle}>{activity.name}</Text>
                 </View>
-              </ImageBackground>
+              </View>
               <View style={styles.activityContent}>
                 <Text style={styles.activitySchedule}>🕒 {activity.schedule || 'A confirmar'}</Text>
                 <Text style={styles.activityPrice}>
@@ -732,8 +829,48 @@ const UserDashboard = () => {
                   Inscrito el {new Date(enrollment.enrolled_at).toLocaleDateString()} • {getMemberName(enrollment.member_id)}
                 </Text>
               </View>
-              <View style={styles.statusPillSmall}>
-                  <Text style={styles.statusPillText}>{enrollment.status.toUpperCase()}</Text>
+              <View style={{ alignItems: 'flex-end', gap: 4 }}>
+                <View style={[styles.statusPillSmall, enrollment.status === 'pending_payment' ? { backgroundColor: '#fef08a' } : {}]}>
+                    <Text style={[styles.statusPillText, enrollment.status === 'pending_payment' ? { color: '#854d0e' } : {}]}>
+                      {enrollment.status === 'pending_payment' ? 'PENDIENTE DE PAGO' : (enrollment.status === 'active' ? 'INSCRIPTO' : enrollment.status.toUpperCase())}
+                    </Text>
+                </View>
+                {enrollment.status === 'pending_payment' && enrollment.activities && (
+                  <TouchableOpacity 
+                    style={[styles.primaryBtnSmall, { paddingVertical: 4, paddingHorizontal: 12, minHeight: 28 }]}
+                    onPress={() => {
+                      let memberName = '';
+                      let memberDni = '';
+                      if (enrollment.member_id === user?.id) {
+                        const fName = user?.first_name || user?.firstName || '';
+                        const lName = user?.last_name || user?.lastName || '';
+                        memberName = `${fName} ${lName}`.trim() || user?.name || '';
+                        memberDni = user?.dni || '';
+                      } else {
+                        const f = family.find(f => f.id === enrollment.member_id);
+                        if (f) {
+                          const fName = f.first_name || f.firstName || '';
+                          const lName = f.last_name || f.lastName || '';
+                          memberName = `${fName} ${lName}`.trim() || f.name || '';
+                          memberDni = f.dni || '';
+                        }
+                      }
+                      
+                      navigate('/pagos', { 
+                        state: { 
+                          concept: `Inscripción - ${enrollment.activities.name}`, 
+                          amount: enrollment.activities.cost, 
+                          enrollment_id: enrollment.id,
+                          email: user.email,
+                          memberName: memberName,
+                          memberDni: memberDni
+                        } 
+                      });
+                    }}
+                  >
+                    <Text style={[styles.primaryBtnSmallText, { fontSize: 12 }]}>Pagar ahora</Text>
+                  </TouchableOpacity>
+                )}
               </View>
             </View>
           ))}
@@ -776,7 +913,7 @@ const UserDashboard = () => {
                 <Text style={styles.listSubtitle}>{member.relation}</Text>
               </View>
               <TouchableOpacity style={styles.iconBtn} onPress={() => setSelectedFamilyMember(member)} accessibilityLabel="Ver carnet familiar">
-                <Text style={styles.iconBtnText}>🆔</Text>
+                <IdCard size={16} />
               </TouchableOpacity>
             </View>
           ))}
@@ -814,189 +951,191 @@ const UserDashboard = () => {
         accessibilityViewIsModal={true}
       >
         <View style={styles.modalOverlay} accessible={true} accessibilityLabel="Formulario para agregar familiar">
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle} accessibilityRole="header">Agregar Familiar</Text>
-            
-            <Text style={styles.inputLabel}>Nombre</Text>
-            <TextInput 
-              style={[styles.input, familyValidationErrors.firstName && styles.inputError]}
-              value={newFamilyMember.firstName}
-              onChangeText={(t) => {
-                setNewFamilyMember({...newFamilyMember, firstName: t});
-                if (familyValidationErrors.firstName) setFamilyValidationErrors(prev => ({...prev, firstName: null}));
-              }}
-              accessibilityLabel="Nombre del familiar"
-              accessibilityHint="Ingresa el nombre del familiar"
-              placeholder="Nombre"
-            />
-            {familyValidationErrors.firstName && (
-              <Text style={styles.errorText} accessibilityLiveRegion="polite">
-                {familyValidationErrors.firstName}
-              </Text>
-            )}
+          <View style={[styles.modalContent, { maxHeight: '90%', padding: 0, flexShrink: 1 }]}>
+            <ScrollView showsVerticalScrollIndicator={true} contentContainerStyle={{ padding: 24, paddingBottom: 40 }}>
+              <Text style={styles.modalTitle} accessibilityRole="header">Agregar Familiar</Text>
+              
+              <Text style={styles.inputLabel}>Nombre</Text>
+              <TextInput 
+                style={[styles.input, familyValidationErrors.firstName && styles.inputError]}
+                value={newFamilyMember.firstName}
+                onChangeText={(t) => {
+                  setNewFamilyMember({...newFamilyMember, firstName: t});
+                  if (familyValidationErrors.firstName) setFamilyValidationErrors(prev => ({...prev, firstName: null}));
+                }}
+                accessibilityLabel="Nombre del familiar"
+                accessibilityHint="Ingresa el nombre del familiar"
+                placeholder="Nombre"
+              />
+              {familyValidationErrors.firstName && (
+                <Text style={styles.errorText} accessibilityLiveRegion="polite">
+                  {familyValidationErrors.firstName}
+                </Text>
+              )}
 
-            <Text style={styles.inputLabel}>Apellido</Text>
-            <TextInput 
-              style={[styles.input, familyValidationErrors.lastName && styles.inputError]}
-              value={newFamilyMember.lastName}
-              onChangeText={(t) => {
-                setNewFamilyMember({...newFamilyMember, lastName: t});
-                if (familyValidationErrors.lastName) setFamilyValidationErrors(prev => ({...prev, lastName: null}));
-              }}
-              accessibilityLabel="Apellido del familiar"
-              accessibilityHint="Ingresa el apellido del familiar"
-              placeholder="Apellido"
-            />
-            {familyValidationErrors.lastName && (
-              <Text style={styles.errorText} accessibilityLiveRegion="polite">
-                {familyValidationErrors.lastName}
-              </Text>
-            )}
+              <Text style={styles.inputLabel}>Apellido</Text>
+              <TextInput 
+                style={[styles.input, familyValidationErrors.lastName && styles.inputError]}
+                value={newFamilyMember.lastName}
+                onChangeText={(t) => {
+                  setNewFamilyMember({...newFamilyMember, lastName: t});
+                  if (familyValidationErrors.lastName) setFamilyValidationErrors(prev => ({...prev, lastName: null}));
+                }}
+                accessibilityLabel="Apellido del familiar"
+                accessibilityHint="Ingresa el apellido del familiar"
+                placeholder="Apellido"
+              />
+              {familyValidationErrors.lastName && (
+                <Text style={styles.errorText} accessibilityLiveRegion="polite">
+                  {familyValidationErrors.lastName}
+                </Text>
+              )}
 
-            <Text style={styles.inputLabel}>DNI</Text>
-            <TextInput 
-              style={[styles.input, familyValidationErrors.dni && styles.inputError]}
-              value={newFamilyMember.dni}
-              keyboardType="numeric"
-              onChangeText={(t) => {
-                setNewFamilyMember({...newFamilyMember, dni: t});
-                if (familyValidationErrors.dni) setFamilyValidationErrors(prev => ({...prev, dni: null}));
-              }}
-              accessibilityLabel="DNI del familiar"
-              accessibilityHint="Ingresa el DNI del familiar"
-              placeholder="Número de documento"
-            />
-            {familyValidationErrors.dni && (
-              <Text style={styles.errorText} accessibilityLiveRegion="polite">
-                {familyValidationErrors.dni}
-              </Text>
-            )}
+              <Text style={styles.inputLabel}>DNI</Text>
+              <TextInput 
+                style={[styles.input, familyValidationErrors.dni && styles.inputError]}
+                value={newFamilyMember.dni}
+                keyboardType="numeric"
+                onChangeText={(t) => {
+                  setNewFamilyMember({...newFamilyMember, dni: t});
+                  if (familyValidationErrors.dni) setFamilyValidationErrors(prev => ({...prev, dni: null}));
+                }}
+                accessibilityLabel="DNI del familiar"
+                accessibilityHint="Ingresa el DNI del familiar"
+                placeholder="Número de documento"
+              />
+              {familyValidationErrors.dni && (
+                <Text style={styles.errorText} accessibilityLiveRegion="polite">
+                  {familyValidationErrors.dni}
+                </Text>
+              )}
 
-            <Text style={styles.inputLabel}>Fecha de Nacimiento</Text>
-            <TextInput 
-              style={styles.input}
-              value={newFamilyMember.birthDate}
-              placeholder="YYYY-MM-DD"
-              onChangeText={(t) => setNewFamilyMember({...newFamilyMember, birthDate: t})}
-              accessibilityLabel="Fecha de nacimiento"
-              accessibilityHint="Formato año-mes-día"
-            />
+              <Text style={styles.inputLabel}>Fecha de Nacimiento</Text>
+              <TextInput 
+                style={styles.input}
+                value={newFamilyMember.birthDate}
+                placeholder="YYYY-MM-DD"
+                onChangeText={(t) => setNewFamilyMember({...newFamilyMember, birthDate: t})}
+                accessibilityLabel="Fecha de nacimiento"
+                accessibilityHint="Formato año-mes-día"
+              />
 
-            <Text style={styles.inputLabel} accessibilityRole="header">Relación</Text>
-            <View style={styles.relationOptions} accessibilityRole="radiogroup">
-              {['Hijo/a', 'Cónyuge', 'Padre/Madre'].map((rel) => (
+              <Text style={styles.inputLabel} accessibilityRole="header">Relación</Text>
+              <View style={styles.relationOptions} accessibilityRole="radiogroup">
+                {['Hijo/a', 'Cónyuge', 'Padre/Madre'].map((rel) => (
+                  <TouchableOpacity 
+                    key={rel}
+                    style={[styles.relationChip, newFamilyMember.relation === rel && styles.relationChipActive]}
+                    onPress={() => setNewFamilyMember({...newFamilyMember, relation: rel})}
+                    accessibilityRole="radio"
+                    accessibilityState={{ checked: newFamilyMember.relation === rel }}
+                    accessibilityLabel={`Relación: ${rel}`}
+                  >
+                    <Text style={[styles.relationChipText, newFamilyMember.relation === rel && styles.relationChipTextActive]}>{rel}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <Text style={styles.inputLabel}>Información Médica (Opcional)</Text>
+              <TextInput 
+                style={styles.input}
+                value={newFamilyMember.medicalInfo}
+                placeholder="Alergias, condiciones, etc."
+                onChangeText={(t) => setNewFamilyMember({...newFamilyMember, medicalInfo: t})}
+                accessibilityLabel="Información médica"
+              />
+
+              <Text style={[styles.modalSubtitle, {marginTop: 20, marginBottom: 10, fontWeight: 'bold'}]} accessibilityRole="header">Documentación (Opcional por ahora)</Text>
+              
+              <View style={{marginBottom: 10}}>
+                <Text style={styles.inputLabel}>Foto Carnet</Text>
                 <TouchableOpacity 
-                  key={rel}
-                  style={[styles.relationChip, newFamilyMember.relation === rel && styles.relationChipActive]}
-                  onPress={() => setNewFamilyMember({...newFamilyMember, relation: rel})}
-                  accessibilityRole="radio"
-                  accessibilityState={{ checked: newFamilyMember.relation === rel }}
-                  accessibilityLabel={`Relación: ${rel}`}
+                  style={styles.fileUploadBtn} 
+                  onPress={() => handleFileClick('photo')}
+                  accessibilityRole="button"
+                  accessibilityLabel={familyFiles.photo ? `Cambiar foto carnet, archivo seleccionado: ${familyFiles.photo.name}` : "Subir foto carnet"}
+                  accessibilityHint="Selecciona una imagen para la foto del carnet"
                 >
-                  <Text style={[styles.relationChipText, newFamilyMember.relation === rel && styles.relationChipTextActive]}>{rel}</Text>
+                  <Text style={styles.fileUploadText} accessibilityLiveRegion="polite">
+                    {familyFiles.photo ? `📄 ${familyFiles.photo.name}` : '📂 Seleccionar Archivo'}
+                  </Text>
                 </TouchableOpacity>
-              ))}
-            </View>
+                <input type="file" ref={fileInputRefs.photo} onChange={e => handleFileChange('photo', e)} style={{ display: 'none' }} accept="image/*" />
+              </View>
 
-            <Text style={styles.inputLabel}>Información Médica (Opcional)</Text>
-            <TextInput 
-              style={styles.input}
-              value={newFamilyMember.medicalInfo}
-              placeholder="Alergias, condiciones, etc."
-              onChangeText={(t) => setNewFamilyMember({...newFamilyMember, medicalInfo: t})}
-              accessibilityLabel="Información médica"
-            />
+              <View style={{marginBottom: 10}}>
+                <Text style={styles.inputLabel}>Copia DNI</Text>
+                <TouchableOpacity 
+                  style={styles.fileUploadBtn} 
+                  onPress={() => handleFileClick('dni_copy')}
+                  accessibilityRole="button"
+                  accessibilityLabel={familyFiles.dni_copy ? `Cambiar copia del DNI, archivo seleccionado: ${familyFiles.dni_copy.name}` : "Subir copia del DNI"}
+                  accessibilityHint="Selecciona una imagen o PDF del DNI"
+                >
+                  <Text style={styles.fileUploadText} accessibilityLiveRegion="polite">
+                    {familyFiles.dni_copy ? `📄 ${familyFiles.dni_copy.name}` : '📂 Seleccionar Archivo'}
+                  </Text>
+                </TouchableOpacity>
+                <input type="file" ref={fileInputRefs.dni_copy} onChange={e => handleFileChange('dni_copy', e)} style={{ display: 'none' }} accept="image/*,.pdf" />
+              </View>
 
-            <Text style={[styles.modalSubtitle, {marginTop: 20, marginBottom: 10, fontWeight: 'bold'}]} accessibilityRole="header">Documentación (Opcional por ahora)</Text>
-            
-            <View style={{marginBottom: 10}}>
-              <Text style={styles.inputLabel}>Foto Carnet</Text>
-              <TouchableOpacity 
-                style={styles.fileUploadBtn} 
-                onPress={() => handleFileClick('photo')}
-                accessibilityRole="button"
-                accessibilityLabel={familyFiles.photo ? `Cambiar foto carnet, archivo seleccionado: ${familyFiles.photo.name}` : "Subir foto carnet"}
-                accessibilityHint="Selecciona una imagen para la foto del carnet"
-              >
-                <Text style={styles.fileUploadText} accessibilityLiveRegion="polite">
-                  {familyFiles.photo ? `📄 ${familyFiles.photo.name}` : '📂 Seleccionar Archivo'}
-                </Text>
-              </TouchableOpacity>
-              <input type="file" ref={fileInputRefs.photo} onChange={e => handleFileChange('photo', e)} style={{ display: 'none' }} accept="image/*" />
-            </View>
+              <View style={{marginBottom: 10}}>
+                <Text style={styles.inputLabel}>Certificado Escolar</Text>
+                <TouchableOpacity 
+                  style={styles.fileUploadBtn} 
+                  onPress={() => handleFileClick('school_cert')}
+                  accessibilityRole="button"
+                  accessibilityLabel={familyFiles.school_cert ? `Cambiar certificado escolar, archivo seleccionado: ${familyFiles.school_cert.name}` : "Subir certificado escolar"}
+                  accessibilityHint="Selecciona una imagen o PDF del certificado escolar"
+                >
+                  <Text style={styles.fileUploadText} accessibilityLiveRegion="polite">
+                    {familyFiles.school_cert ? `📄 ${familyFiles.school_cert.name}` : '📂 Seleccionar Archivo'}
+                  </Text>
+                </TouchableOpacity>
+                <input type="file" ref={fileInputRefs.school_cert} onChange={e => handleFileChange('school_cert', e)} style={{ display: 'none' }} accept="image/*,.pdf" />
+              </View>
 
-            <View style={{marginBottom: 10}}>
-              <Text style={styles.inputLabel}>Copia DNI</Text>
-              <TouchableOpacity 
-                style={styles.fileUploadBtn} 
-                onPress={() => handleFileClick('dni_copy')}
-                accessibilityRole="button"
-                accessibilityLabel={familyFiles.dni_copy ? `Cambiar copia del DNI, archivo seleccionado: ${familyFiles.dni_copy.name}` : "Subir copia del DNI"}
-                accessibilityHint="Selecciona una imagen o PDF del DNI"
-              >
-                <Text style={styles.fileUploadText} accessibilityLiveRegion="polite">
-                  {familyFiles.dni_copy ? `📄 ${familyFiles.dni_copy.name}` : '📂 Seleccionar Archivo'}
-                </Text>
-              </TouchableOpacity>
-              <input type="file" ref={fileInputRefs.dni_copy} onChange={e => handleFileChange('dni_copy', e)} style={{ display: 'none' }} accept="image/*,.pdf" />
-            </View>
+              <View style={{marginBottom: 10}}>
+                <Text style={styles.inputLabel}>Autorización de Padres</Text>
+                <TouchableOpacity 
+                  style={styles.fileUploadBtn} 
+                  onPress={() => handleFileClick('auth_parents')}
+                  accessibilityRole="button"
+                  accessibilityLabel={familyFiles.auth_parents ? `Cambiar autorización de padres, archivo seleccionado: ${familyFiles.auth_parents.name}` : "Subir autorización de padres"}
+                  accessibilityHint="Selecciona una imagen o PDF de la autorización"
+                >
+                  <Text style={styles.fileUploadText} accessibilityLiveRegion="polite">
+                    {familyFiles.auth_parents ? `📄 ${familyFiles.auth_parents.name}` : '📂 Seleccionar Archivo'}
+                  </Text>
+                </TouchableOpacity>
+                <input type="file" ref={fileInputRefs.auth_parents} onChange={e => handleFileChange('auth_parents', e)} style={{ display: 'none' }} accept="image/*,.pdf" />
+              </View>
 
-            <View style={{marginBottom: 10}}>
-              <Text style={styles.inputLabel}>Certificado Escolar</Text>
-              <TouchableOpacity 
-                style={styles.fileUploadBtn} 
-                onPress={() => handleFileClick('school_cert')}
-                accessibilityRole="button"
-                accessibilityLabel={familyFiles.school_cert ? `Cambiar certificado escolar, archivo seleccionado: ${familyFiles.school_cert.name}` : "Subir certificado escolar"}
-                accessibilityHint="Selecciona una imagen o PDF del certificado escolar"
-              >
-                <Text style={styles.fileUploadText} accessibilityLiveRegion="polite">
-                  {familyFiles.school_cert ? `📄 ${familyFiles.school_cert.name}` : '📂 Seleccionar Archivo'}
-                </Text>
-              </TouchableOpacity>
-              <input type="file" ref={fileInputRefs.school_cert} onChange={e => handleFileChange('school_cert', e)} style={{ display: 'none' }} accept="image/*,.pdf" />
-            </View>
-
-            <View style={{marginBottom: 10}}>
-              <Text style={styles.inputLabel}>Autorización de Padres</Text>
-              <TouchableOpacity 
-                style={styles.fileUploadBtn} 
-                onPress={() => handleFileClick('auth_parents')}
-                accessibilityRole="button"
-                accessibilityLabel={familyFiles.auth_parents ? `Cambiar autorización de padres, archivo seleccionado: ${familyFiles.auth_parents.name}` : "Subir autorización de padres"}
-                accessibilityHint="Selecciona una imagen o PDF de la autorización"
-              >
-                <Text style={styles.fileUploadText} accessibilityLiveRegion="polite">
-                  {familyFiles.auth_parents ? `📄 ${familyFiles.auth_parents.name}` : '📂 Seleccionar Archivo'}
-                </Text>
-              </TouchableOpacity>
-              <input type="file" ref={fileInputRefs.auth_parents} onChange={e => handleFileChange('auth_parents', e)} style={{ display: 'none' }} accept="image/*,.pdf" />
-            </View>
-
-            <View style={styles.modalActions}>
-              <TouchableOpacity 
-                style={styles.outlineBtn} 
-                onPress={() => setShowFamilyModal(false)}
-                accessibilityRole="button"
-                accessibilityLabel="Cancelar agregar familiar"
-              >
-                <Text style={styles.outlineBtnText}>Cancelar</Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={[styles.primaryBtn, isSubmittingFamily && {opacity: 0.7}]} 
-                onPress={handleAddFamily}
-                disabled={isSubmittingFamily}
-                accessibilityRole="button"
-                accessibilityLabel={isSubmittingFamily ? "Guardando familiar..." : "Guardar familiar"}
-                accessibilityState={{ busy: isSubmittingFamily }}
-              >
-                {isSubmittingFamily ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <Text style={styles.primaryBtnText}>Guardar</Text>
-                )}
-              </TouchableOpacity>
-            </View>
+              <View style={styles.modalActions}>
+                <TouchableOpacity 
+                  style={[styles.outlineBtn, { flex: 1, marginTop: 0 }]} 
+                  onPress={() => setShowFamilyModal(false)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Cancelar agregar familiar"
+                >
+                  <Text style={styles.outlineBtnText}>Cancelar</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={[styles.primaryBtn, { flex: 1, marginTop: 0 }, isSubmittingFamily && {opacity: 0.7}]} 
+                  onPress={handleAddFamily}
+                  disabled={isSubmittingFamily}
+                  accessibilityRole="button"
+                  accessibilityLabel={isSubmittingFamily ? "Guardando familiar..." : "Guardar familiar"}
+                  accessibilityState={{ busy: isSubmittingFamily }}
+                >
+                  {isSubmittingFamily ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <Text style={styles.primaryBtnText}>Guardar</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -1012,8 +1151,19 @@ const UserDashboard = () => {
         <View style={styles.modalOverlay} accessible={true} accessibilityLabel="Inscripción a actividad">
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle} accessibilityRole="header">Inscribirse a Actividad</Text>
+            
+            <img 
+              src={selectedActivity?.image 
+                ? (selectedActivity.image.startsWith('http') 
+                    ? selectedActivity.image 
+                    : `${API_URL.replace('/api', '')}${selectedActivity.image.startsWith('/') ? '' : '/'}${selectedActivity.image}`)
+                : '/assets/default-activity.jpg'} 
+              style={{ width: '100%', height: 150, borderRadius: 8, marginBottom: 16, objectFit: 'cover' }} 
+              alt={selectedActivity?.name || 'Actividad'}
+            />
+
             <Text style={styles.modalSubtitle} accessibilityLabel={`Actividad seleccionada: ${selectedActivity?.name}`}>
-              {selectedActivity?.name}
+              {selectedActivity?.name} {selectedActivity?.cost > 0 ? `($${selectedActivity.cost})` : '(Gratis)'}
             </Text>
 
             <Text style={styles.inputLabel} accessibilityRole="header">¿Quién asistirá?</Text>
@@ -1023,9 +1173,17 @@ const UserDashboard = () => {
                 onPress={() => setEnrollMemberId(user?.id)}
                 accessibilityRole="radio"
                 accessibilityState={{ checked: enrollMemberId === user?.id }}
-                accessibilityLabel={`Yo, ${user?.firstName}`}
+                accessibilityLabel={`Yo, ${user?.first_name || user?.firstName || user?.name || ''}`}
               >
-                <Text style={styles.memberOptionText}>Yo ({user?.firstName})</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  <View style={[styles.avatarMedium, { width: 40, height: 40 }]}>
+                    <Text style={styles.avatarMediumText}>{(user?.first_name || user?.firstName)?.[0] || 'U'}</Text>
+                  </View>
+                  <View>
+                    <Text style={styles.memberOptionText}>Yo ({(user?.first_name || user?.firstName) ? `${user?.first_name || user?.firstName} ${user?.last_name || user?.lastName}`.trim() : user?.name || 'Usuario'})</Text>
+                    <Text style={{ fontSize: 12, color: '#64748b' }}>DNI: {user?.dni || 'N/A'}</Text>
+                  </View>
+                </View>
               </TouchableOpacity>
               
               {family.map(f => (
@@ -1037,16 +1195,26 @@ const UserDashboard = () => {
                   accessibilityState={{ checked: enrollMemberId === f.id }}
                   accessibilityLabel={`${f.first_name || f.firstName}, ${f.relation}`}
                 >
-                  <Text style={styles.memberOptionText}>
-                    {f.first_name || f.firstName} ({f.relation})
-                  </Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                    <View style={[styles.avatarMedium, { width: 40, height: 40 }]}>
+                      <Text style={styles.avatarMediumText}>{f.first_name?.[0] || f.firstName?.[0] || 'F'}</Text>
+                    </View>
+                    <View>
+                      <Text style={styles.memberOptionText}>
+                        {f.first_name || f.firstName} {f.last_name || f.lastName}
+                      </Text>
+                      <Text style={{ fontSize: 12, color: '#64748b' }}>
+                        {f.relation} • DNI: {f.dni || 'N/A'}
+                      </Text>
+                    </View>
+                  </View>
                 </TouchableOpacity>
               ))}
             </View>
 
             <View style={styles.modalActions}>
               <TouchableOpacity 
-                style={styles.outlineBtn} 
+                style={[styles.outlineBtn, { flex: 1, marginTop: 0 }]} 
                 onPress={() => setShowEnrollModal(false)}
                 accessibilityRole="button"
                 accessibilityLabel="Cancelar inscripción"
@@ -1054,12 +1222,75 @@ const UserDashboard = () => {
                 <Text style={styles.outlineBtnText}>Cancelar</Text>
               </TouchableOpacity>
               <TouchableOpacity 
-                style={styles.primaryBtn} 
+                style={[styles.primaryBtn, { flex: 1, marginTop: 0 }]} 
                 onPress={handleEnroll}
                 accessibilityRole="button"
                 accessibilityLabel="Confirmar inscripción"
               >
                 <Text style={styles.primaryBtnText}>Confirmar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Receipt Modal */}
+      <Modal
+        visible={showReceiptModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowReceiptModal(false)}
+        accessibilityViewIsModal={true}
+      >
+        <View style={styles.modalOverlay} accessible={true} accessibilityLabel="Comprobante de pago">
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle} accessibilityRole="header">Comprobante de Pago</Text>
+            <View ref={receiptRef} style={{ gap: 12 }}>
+              <View style={styles.receiptRow}>
+                <Text style={styles.receiptLabel}>Concepto</Text>
+                <Text style={styles.receiptValue}>{selectedPayment?.concept || 'Cuota Social'}</Text>
+              </View>
+              <View style={styles.receiptRow}>
+                <Text style={styles.receiptLabel}>Fecha</Text>
+                <Text style={styles.receiptValue}>{selectedPayment?.paidAtFull || '—'}</Text>
+              </View>
+              <View style={styles.receiptRow}>
+                <Text style={styles.receiptLabel}>Monto</Text>
+                <Text style={styles.receiptValue}>${(selectedPayment?.amount || 0).toLocaleString()}</Text>
+              </View>
+              <View style={styles.receiptRow}>
+                <Text style={styles.receiptLabel}>Método</Text>
+                <Text style={styles.receiptValue}>{selectedPayment?.methodLabel || '—'}</Text>
+              </View>
+              <View style={styles.receiptRow}>
+                <Text style={styles.receiptLabel}>Estado</Text>
+                <Text style={styles.receiptValue}>{(selectedPayment?.status || 'aprobado').toUpperCase()}</Text>
+              </View>
+              <View style={styles.receiptRow}>
+                <Text style={styles.receiptLabel}>ID Transacción</Text>
+                <Text style={styles.receiptValue}>{selectedPayment?.external_id || selectedPayment?.id || '—'}</Text>
+              </View>
+              <View style={styles.receiptRow}>
+                <Text style={styles.receiptLabel}>Email</Text>
+                <Text style={styles.receiptValue}>{selectedPayment?.email || memberData?.email || '—'}</Text>
+              </View>
+            </View>
+            <View style={styles.modalActions}>
+              <TouchableOpacity 
+                style={[styles.outlineBtn, { flex: 1, marginTop: 0 }]} 
+                onPress={() => setShowReceiptModal(false)}
+                accessibilityRole="button"
+                accessibilityLabel="Cerrar comprobante"
+              >
+                <Text style={styles.outlineBtnText}>Cerrar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.primaryBtn, { flex: 1, marginTop: 0 }]} 
+                onPress={() => downloadReceiptPDF(selectedPayment)}
+                accessibilityRole="button"
+                accessibilityLabel="Descargar comprobante en PDF"
+              >
+                <Text style={styles.primaryBtnText}>Descargar PDF</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -1149,7 +1380,7 @@ const styles = StyleSheet.create({
   },
   heroOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(7, 5, 113, 0.75)',
+    backgroundColor: 'rgba(7, 5, 113, 0.6)',
   },
   heroContent: {
     flex: 1,
@@ -1194,10 +1425,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
+    boxShadow: '0px 4px 8px rgba(0, 0, 0, 0.2)',
   },
   avatarLargeText: {
     fontSize: 32,
@@ -1207,8 +1435,11 @@ const styles = StyleSheet.create({
   heroTextContainer: { flex: 1 },
   welcomeText: {
     color: '#fff',
-    fontSize: 28,
-    fontWeight: '800',
+    fontSize: 34,
+    fontWeight: '400',
+    fontFamily: 'Bebas Neue, Inter, sans-serif',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
     marginBottom: 8,
   },
   heroBadges: {
@@ -1248,10 +1479,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderRadius: 16,
     padding: 8,
-    shadowColor: '#64748b',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
+    boxShadow: '0px 4px 12px rgba(100, 116, 139, 0.08)',
     elevation: 4,
     marginBottom: 24,
   },
@@ -1276,10 +1504,14 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#64748b',
+    fontFamily: 'Inter, sans-serif',
   },
   navTabTextActive: {
     color: '#070571',
-    fontWeight: '700',
+    fontWeight: '400',
+    fontFamily: 'Bebas Neue, Inter, sans-serif',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
   },
 
   tabContentArea: {
@@ -1297,10 +1529,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderRadius: 24,
     padding: 24,
-    shadowColor: '#64748b',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.06,
-    shadowRadius: 16,
+    boxShadow: '0px 4px 16px rgba(100, 116, 139, 0.06)',
     elevation: 2,
     borderWidth: 1,
     borderColor: '#f1f5f9',
@@ -1312,8 +1541,11 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   cardTitle: {
-    fontSize: 20,
-    fontWeight: '800',
+    fontSize: 24,
+    fontWeight: '400',
+    fontFamily: 'Bebas Neue, Inter, sans-serif',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
     color: '#0f172a',
     marginBottom: 4,
   },
@@ -1321,6 +1553,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#64748b',
     fontWeight: '500',
+    fontFamily: 'Inter, sans-serif',
   },
   boldText: { fontWeight: '700', color: '#334155' },
 
@@ -1363,40 +1596,39 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',
-    shadowColor: '#070571',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
+    boxShadow: '0px 4px 8px rgba(7, 5, 113, 0.2)',
   },
-  primaryBtnError: { backgroundColor: '#b91c1c', shadowColor: '#b91c1c' },
+  primaryBtnError: { backgroundColor: '#b91c1c', boxShadow: '0px 4px 8px rgba(185, 28, 28, 0.2)' },
   primaryBtnText: { color: '#fff', fontSize: 15, fontWeight: '700', letterSpacing: 0.5 },
   primaryBtnSmall: {
     backgroundColor: '#eff6ff',
     paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
+    paddingVertical: 10,
+    borderRadius: 12,
+    boxShadow: '0 4px 12px rgba(37, 99, 235, 0.15)'
   },
   primaryBtnSmallText: { color: '#2563eb', fontWeight: '700', fontSize: 13 },
   outlineBtn: {
     paddingVertical: 14,
-    borderRadius: 12,
+    borderRadius: 16,
     borderWidth: 2,
     borderColor: '#e2e8f0',
     alignItems: 'center',
     marginTop: 16,
+    boxShadow: '0 4px 12px rgba(2, 6, 23, 0.08)',
   },
   outlineBtnText: { color: '#475569', fontWeight: '700', fontSize: 14 },
   iconBtn: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#ffffff',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#e2e8f0',
+    boxShadow: '0 6px 16px rgba(15, 23, 42, 0.08)'
   },
-  iconBtnText: { fontSize: 16 },
 
   // Quick Actions Grid
   quickActionsGrid: {
@@ -1455,7 +1687,7 @@ const styles = StyleSheet.create({
   avatarMediumText: { color: '#4338ca', fontSize: 20, fontWeight: '800' },
   listInfo: { flex: 1 },
   listTitle: { fontSize: 15, fontWeight: '700', color: '#1e293b', marginBottom: 4 },
-  listSubtitle: { fontSize: 13, color: '#64748b', fontWeight: '500' },
+  listSubtitle: { fontSize: 13, color: '#64748b', fontWeight: '500', fontFamily: 'Inter, sans-serif' },
   listRight: { alignItems: 'flex-end', gap: 6 },
   listAmount: { fontSize: 16, fontWeight: '800', color: '#0f172a' },
   statusPillSmall: { backgroundColor: '#dcfce7', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
@@ -1464,8 +1696,8 @@ const styles = StyleSheet.create({
   // Empty States
   emptyState: { alignItems: 'center', paddingVertical: 40, paddingHorizontal: 20 },
   emptyIcon: { fontSize: 40, marginBottom: 16 },
-  emptyTitle: { fontSize: 18, fontWeight: '700', color: '#334155', marginBottom: 8 },
-  emptyText: { fontSize: 14, color: '#64748b', textAlign: 'center', lineHeight: 22 },
+  emptyTitle: { fontSize: 22, fontWeight: '400', fontFamily: 'Bebas Neue, Inter, sans-serif', letterSpacing: 0.5, textTransform: 'uppercase', color: '#334155', marginBottom: 8 },
+  emptyText: { fontSize: 14, color: '#64748b', textAlign: 'center', lineHeight: 22, fontFamily: 'Inter, sans-serif' },
 
   // Full ID View
   centerContainer: { alignItems: 'center', width: '100%' },
@@ -1474,10 +1706,7 @@ const styles = StyleSheet.create({
     borderRadius: 32,
     padding: 32,
     alignItems: 'center',
-    shadowColor: '#070571',
-    shadowOffset: { width: 0, height: 20 },
-    shadowOpacity: 0.15,
-    shadowRadius: 40,
+    boxShadow: '0px 20px 40px rgba(7, 5, 113, 0.15)',
     elevation: 20,
     width: '100%',
     maxWidth: 400,
@@ -1543,10 +1772,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: '#e2e8f0',
-    shadowColor: '#64748b',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 12,
+    boxShadow: '0px 4px 12px rgba(100, 116, 139, 0.05)',
   },
   activityImage: {
     width: '100%',
@@ -1559,8 +1785,11 @@ const styles = StyleSheet.create({
   },
   activityTitle: {
     color: '#fff',
-    fontSize: 18,
-    fontWeight: '800',
+    fontSize: 22,
+    fontWeight: '400',
+    fontFamily: 'Bebas Neue, Inter, sans-serif',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
   },
   activityContent: {
     padding: 16,
@@ -1581,6 +1810,7 @@ const styles = StyleSheet.create({
     color: '#475569',
     lineHeight: 20,
     marginBottom: 8,
+    fontFamily: 'Inter, sans-serif',
   },
 
   // Modals
@@ -1597,15 +1827,18 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderRadius: 24,
     padding: 32,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 20 },
-    shadowOpacity: 0.25,
-    shadowRadius: 40,
+    boxShadow: '0px 20px 40px rgba(0, 0, 0, 0.25)',
     elevation: 24,
   },
+  receiptRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
+  receiptLabel: { color: '#64748b', fontSize: 13, fontWeight: '600', fontFamily: 'Inter, sans-serif' },
+  receiptValue: { color: '#0f172a', fontSize: 14, fontWeight: '700' },
   modalTitle: {
-    fontSize: 24,
-    fontWeight: '800',
+    fontSize: 28,
+    fontWeight: '400',
+    fontFamily: 'Bebas Neue, Inter, sans-serif',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
     color: '#0f172a',
     marginBottom: 8,
     textAlign: 'center',
@@ -1618,10 +1851,13 @@ const styles = StyleSheet.create({
   },
   inputLabel: {
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '400',
     color: '#334155',
     marginBottom: 8,
     marginTop: 16,
+    fontFamily: 'Bebas Neue, Inter, sans-serif',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
   },
   input: {
     backgroundColor: '#f8fafc',

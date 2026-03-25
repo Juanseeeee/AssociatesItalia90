@@ -388,12 +388,12 @@ const Register = () => {
       <View style={responsiveRow}>
         <View style={responsiveCol}>
           <Text style={styles.label}>Nombre</Text>
-          <TextInput style={styles.input} value={formData.firstName} onChangeText={t => updateField('firstName', t)} placeholder="Juan" />
+          <TextInput style={styles.input} value={formData.firstName} onChangeText={t => updateField('firstName', t)} placeholder="Juan" onSubmitEditing={() => { if (isStepValid && !loading) handleNext(); }} />
           {validationErrors.firstName && <Text style={styles.errorText}>{validationErrors.firstName}</Text>}
         </View>
         <View style={responsiveCol}>
           <Text style={styles.label}>Apellido</Text>
-          <TextInput style={styles.input} value={formData.lastName} onChangeText={t => updateField('lastName', t)} placeholder="Pérez" />
+          <TextInput style={styles.input} value={formData.lastName} onChangeText={t => updateField('lastName', t)} placeholder="Pérez" onSubmitEditing={() => { if (isStepValid && !loading) handleNext(); }} />
           {validationErrors.lastName && <Text style={styles.errorText}>{validationErrors.lastName}</Text>}
         </View>
       </View>
@@ -411,6 +411,7 @@ const Register = () => {
             onBlur={() => {
               if (formData.dni.length >= 7) checkDuplicate(formData.email, formData.dni);
             }}
+            onSubmitEditing={() => { if (isStepValid && !loading) handleNext(); }}
           />
           {validationErrors.dni && <Text style={styles.errorText}>{validationErrors.dni}</Text>}
         </View>
@@ -423,6 +424,7 @@ const Register = () => {
              placeholder="DD/MM/AAAA" 
              keyboardType="numeric"
              maxLength={10}
+             onSubmitEditing={() => { if (isStepValid && !loading) handleNext(); }}
           />
           {validationErrors.birthDate && <Text style={styles.errorText}>{validationErrors.birthDate}</Text>}
         </View>
@@ -436,6 +438,7 @@ const Register = () => {
           onChangeText={t => handleNumericChange('phone', t, 15)} 
           keyboardType="phone-pad" 
           placeholder="11 1234 5678" 
+          onSubmitEditing={() => { if (isStepValid && !loading) handleNext(); }}
         />
         {validationErrors.phone && <Text style={styles.errorText}>{validationErrors.phone}</Text>}
       </View>
@@ -452,6 +455,7 @@ const Register = () => {
           onBlur={() => {
             if (formData.email && formData.email.includes('@')) checkDuplicate(formData.email, formData.dni);
           }}
+          onSubmitEditing={() => { if (isStepValid && !loading) handleNext(); }}
         />
         {validationErrors.email && <Text style={styles.errorText}>{validationErrors.email}</Text>}
       </View>
@@ -464,6 +468,7 @@ const Register = () => {
           onChangeText={t => updateField('password', t)} 
           secureTextEntry 
           placeholder="••••••" 
+          onSubmitEditing={() => { if (isStepValid && !loading) handleNext(); }}
         />
         {validationErrors.password && <Text style={styles.errorText}>{validationErrors.password}</Text>}
       </View>
@@ -512,12 +517,13 @@ const Register = () => {
               keyboardType="numeric"
               maxLength={4}
               onBlur={() => validateAddressAPI(formData.zipCode)}
+              onSubmitEditing={() => { if (isStepValid && !loading) handleNext(); }}
             />
             {validationErrors.zipCode && <Text style={styles.errorText}>{validationErrors.zipCode}</Text>}
           </View>
           <View style={responsiveColFlex2}>
             <Text style={styles.label}>Dirección</Text>
-            <TextInput style={styles.input} value={formData.address} onChangeText={t => updateField('address', t)} placeholder="Calle 123" />
+            <TextInput style={styles.input} value={formData.address} onChangeText={t => updateField('address', t)} placeholder="Calle 123" onSubmitEditing={() => { if (isStepValid && !loading) handleNext(); }} />
             {validationErrors.address && <Text style={styles.errorText}>{validationErrors.address}</Text>}
           </View>
         </View>
@@ -764,7 +770,7 @@ const Register = () => {
         <View style={styles.card}>
           {/* Header */}
           <View style={styles.header}>
-            <Image source={{ uri: '/logo-italia90.png' }} style={styles.logo} resizeMode="contain" />
+            <Image source={{ uri: '/logo-italia90.png' }} style={styles.logo} />
             <Text style={styles.title}>Alta de Socio</Text>
           </View>
 
@@ -908,7 +914,7 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     border: 'none',
-    background: 'transparent',
+    backgroundColor: 'transparent',
     paddingHorizontal: 12,
     fontSize: 16,
     color: '#334155',
@@ -937,7 +943,7 @@ const styles = StyleSheet.create({
   uploadPlaceholder: { alignItems: 'center' },
   uploadIcon: { fontSize: 24, marginBottom: 5 },
   uploadText: { fontSize: 10, color: '#6b7280', textAlign: 'center' },
-  previewImg: { width: '100%', height: '100%', resizeMode: 'cover' },
+  previewImg: { width: '100%', height: '100%' },
   
   helperText: { textAlign: 'center', fontSize: 12, color: '#6b7280', marginBottom: 10 },
   
