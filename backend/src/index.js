@@ -44,7 +44,17 @@ const logAudit = async (req, action, entity, entityId, details) => {
 };
 
 const app = express();
-app.use(cors());
+const isProd = process.env.NODE_ENV === 'production';
+const allowedOrigins = (process.env.CORS_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean);
+app.use(cors({
+  origin: (origin, cb) => {
+    if (!origin) return cb(null, true);
+    if (!isProd) return cb(null, true);
+    if (allowedOrigins.includes(origin)) return cb(null, true);
+    cb(new Error('Not allowed by CORS'));
+  },
+  credentials: true
+}));
 app.use(morgan('dev'));
 app.use(express.json());
 app.use('/uploads', express.static(uploadDir));
@@ -461,11 +471,6 @@ app.get('/api/news', async (req, res) => {
   res.json(data || []);
 });
 
-// Ensure dedicated folder for news images
-const newsUploadDir = path.join(uploadDir, 'news');
-if (!fs.existsSync(newsUploadDir)) {
-  fs.mkdirSync(newsUploadDir, { recursive: true });
-}
 const uploadNews = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 }
@@ -479,13 +484,17 @@ app.post('/api/news', requireAdmin, uploadNews.single('image'), async (req, res)
   if (req.file) {
     try {
       const filename = `news/${Date.now()}-${nanoid(6)}.webp`;
-      const filepath = path.join(uploadDir, filename);
-      const dir = path.dirname(filepath);
-      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-      await sharp(req.file.buffer)
+      const processed = await sharp(req.file.buffer)
         .resize(800, 600, { fit: 'cover', withoutEnlargement: false })
-        .toFile(filepath);
-      imageUrl = `/uploads/${filename}`;
+        .webp({ quality: 85 })
+        .toBuffer();
+      const { error: upErr } = await supabase
+        .storage
+        .from('news')
+        .upload(filename, processed, { contentType: 'image/webp', upsert: true });
+      if (upErr) return res.status(500).json({ error: 'Error saving image' });
+      const { data: pub } = supabase.storage.from('news').getPublicUrl(filename);
+      imageUrl = pub?.publicUrl || '';
     } catch (e) {
       console.error('Error saving image:', e);
       return res.status(500).json({ error: 'Error saving image' });
@@ -519,13 +528,17 @@ app.put('/api/news/:id', requireAuth, requireAdmin, uploadNews.single('image'), 
   if (req.file) {
     try {
       const filename = `news/${Date.now()}-${nanoid(6)}.webp`;
-      const filepath = path.join(uploadDir, filename);
-      const dir = path.dirname(filepath);
-      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-      await sharp(req.file.buffer)
+      const processed = await sharp(req.file.buffer)
         .resize(800, 600, { fit: 'cover', withoutEnlargement: false })
-        .toFile(filepath);
-      updates.image = `/uploads/${filename}`;
+        .webp({ quality: 85 })
+        .toBuffer();
+      const { error: upErr } = await supabase
+        .storage
+        .from('news')
+        .upload(filename, processed, { contentType: 'image/webp', upsert: true });
+      if (upErr) return res.status(500).json({ error: 'Error saving image' });
+      const { data: pub } = supabase.storage.from('news').getPublicUrl(filename);
+      updates.image = pub?.publicUrl || '';
     } catch (e) {
       console.error('Error saving image:', e);
       return res.status(500).json({ error: 'Error saving image' });

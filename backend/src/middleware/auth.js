@@ -1,7 +1,7 @@
 import jwt from 'jsonwebtoken';
 import supabase from '../supabase.js';
-
-const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-key-change-in-prod';
+const isProd = process.env.NODE_ENV === 'production';
+const JWT_SECRET = process.env.JWT_SECRET || (isProd ? '' : 'super-secret-key-change-in-prod');
 
 export const requireAuth = (req, res, next) => {
   const authHeader = req.headers.authorization;

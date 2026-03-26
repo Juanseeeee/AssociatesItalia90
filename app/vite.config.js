@@ -29,6 +29,15 @@ export default defineConfig({
     pool: 'threads',
     deps: {
       inline: ['@asamuzakjp/css-color', '@csstools/css-calc']
+    },
+    coverage: {
+      reporter: ['text', 'html', 'lcov'],
+      thresholds: {
+        lines: 0.8,
+        statements: 0.8,
+        functions: 0.8,
+        branches: 0.8
+      }
     }
   }
 });

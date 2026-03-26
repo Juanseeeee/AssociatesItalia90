@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "node src/index.js",
-    "start": "node src/index.js > server.log 2>&1"
+    "start": "node src/index.js > server.log 2>&1",
+    "test": "vitest --run"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.99.1",
@@ -22,5 +23,9 @@
     "node-fetch": "^3.3.2",
     "nodemailer": "^8.0.3",
     "sharp": "^0.34.5"
+  },
+  "devDependencies": {
+    "supertest": "^7.0.0",
+    "vitest": "^2.0.5"
   }
 }
